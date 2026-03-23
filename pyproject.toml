@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "capacity-planning-tool"
+version = "1.0.0"
+description = "JSON capacity planning CLI"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.11.0",
+  "ruff>=0.6.0"
+]
+
+[project.scripts]
+capacity-plan = "capacity_planning_tool.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_unused_configs = true
+mypy_path = "src"

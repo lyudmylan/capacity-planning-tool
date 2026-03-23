@@ -1,0 +1,55 @@
+{
+  "planning_horizon": "month",
+  "working_days": 20,
+  "holidays_days": 1,
+  "vacation_days": 2,
+  "sick_days": 1,
+  "team_structure": {
+    "teams": [
+      {
+        "name": "Core Product",
+        "roles": [
+          {
+            "role": "Full Stack Engineer",
+            "seniority": "Senior",
+            "count": 3
+          },
+          {
+            "role": "Backend Engineer",
+            "seniority": "Mid",
+            "members": [
+              {
+                "name": "Jordan",
+                "capacity_percent": 0.5
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "roadmap": {
+    "features": [
+      {
+        "name": "New Billing Engine",
+        "size": "L",
+        "priority": "Critical"
+      },
+      {
+        "name": "Reporting API",
+        "size": "M",
+        "priority": "High"
+      },
+      {
+        "name": "Theme Refresh",
+        "size": "L",
+        "priority": "Low"
+      },
+      {
+        "name": "Audit Trail",
+        "size": "S",
+        "priority": "Medium"
+      }
+    ]
+  }
+}

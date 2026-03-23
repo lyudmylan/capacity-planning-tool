@@ -1,0 +1,49 @@
+{
+  "planning_horizon": "quarter",
+  "working_days": 60,
+  "holidays_days": 2,
+  "vacation_days": 5,
+  "sick_days": 1,
+  "team_structure": {
+    "teams": [
+      {
+        "name": "Platform",
+        "roles": [
+          {
+            "role": "Backend Engineer",
+            "seniority": "Senior",
+            "count": 2
+          },
+          {
+            "role": "Frontend Engineer",
+            "seniority": "Mid",
+            "members": [
+              {
+                "name": "Casey"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "roadmap": {
+    "features": [
+      {
+        "name": "Authentication Hardening",
+        "size": "M",
+        "priority": "Critical"
+      },
+      {
+        "name": "Dashboard Refresh",
+        "size": "S",
+        "priority": "High"
+      },
+      {
+        "name": "Admin Export",
+        "size": "XS",
+        "priority": "Medium"
+      }
+    ]
+  }
+}

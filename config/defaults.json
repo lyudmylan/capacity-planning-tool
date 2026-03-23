@@ -1,0 +1,23 @@
+{
+  "capacity_percent_default": 1.0,
+  "focus_factor_default": 0.8,
+  "sprint_days_default": 10,
+  "overhead_days_per_sprint_default": 2,
+  "feature_size_multipliers": {
+    "XS": 0.5,
+    "S": 1.0,
+    "M": 2.0,
+    "L": 3.0
+  },
+  "priority_rank": {
+    "Low": 1,
+    "Medium": 2,
+    "High": 3,
+    "Critical": 4
+  },
+  "utilization_target_min": 0.8,
+  "utilization_target_max": 0.9,
+  "buffer_target_ratio": 0.1,
+  "improvement_passes": 1,
+  "output_precision": 2
+}
