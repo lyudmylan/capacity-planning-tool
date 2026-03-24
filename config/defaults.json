@@ -15,10 +15,28 @@
     "High": 3,
     "Critical": 4
   },
+  "log_level_default": "INFO",
   "utilization_target_min": 0.8,
   "utilization_target_max": 0.9,
   "buffer_target_ratio": 0.1,
   "defer_preference_default": ["Low", "Medium", "High", "Critical"],
+  "candidate_sort_order": [
+    "preserved_priority",
+    "defer_preference",
+    "demand_desc",
+    "original_index"
+  ],
+  "plan_score_order": [
+    "acceptable",
+    "goal_compliant",
+    "feasible",
+    "hard_constraint_violations",
+    "utilization_gap",
+    "buffer_gap",
+    "soft_goal_violations",
+    "delivered_priority_value",
+    "removed_feature_count"
+  ],
   "agentic_max_iterations": 3,
   "agentic_candidate_limit": 3,
   "output_precision": 2

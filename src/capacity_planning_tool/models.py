@@ -13,6 +13,24 @@ class InputValidationError(ValueError):
 SUPPORTED_PLANNING_HORIZONS = {"year", "half_year", "quarter", "month", "sprint"}
 SUPPORTED_FEATURE_SIZES = {"XS", "S", "M", "L"}
 SUPPORTED_PRIORITIES = {"Critical", "High", "Medium", "Low"}
+SUPPORTED_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
+SUPPORTED_CANDIDATE_SORT_KEYS = {
+    "preserved_priority",
+    "defer_preference",
+    "demand_desc",
+    "original_index",
+}
+SUPPORTED_PLAN_SCORE_KEYS = {
+    "acceptable",
+    "goal_compliant",
+    "feasible",
+    "hard_constraint_violations",
+    "utilization_gap",
+    "buffer_gap",
+    "soft_goal_violations",
+    "delivered_priority_value",
+    "removed_feature_count",
+}
 
 
 def _require_mapping(value: Any, field_name: str) -> dict[str, Any]:
@@ -61,10 +79,13 @@ class DefaultsConfig:
     overhead_days_per_sprint_default: float
     feature_size_multipliers: dict[str, float]
     priority_rank: dict[str, int]
+    log_level_default: str
     utilization_target_min: float
     utilization_target_max: float
     buffer_target_ratio: float
     defer_preference_default: tuple[str, ...]
+    candidate_sort_order: tuple[str, ...]
+    plan_score_order: tuple[str, ...]
     agentic_max_iterations: int
     agentic_candidate_limit: int
     output_precision: int
@@ -78,10 +99,13 @@ class DefaultsConfig:
             "overhead_days_per_sprint_default",
             "feature_size_multipliers",
             "priority_rank",
+            "log_level_default",
             "utilization_target_min",
             "utilization_target_max",
             "buffer_target_ratio",
             "defer_preference_default",
+            "candidate_sort_order",
+            "plan_score_order",
             "agentic_max_iterations",
             "agentic_candidate_limit",
             "output_precision",
@@ -102,9 +126,30 @@ class DefaultsConfig:
                 data["defer_preference_default"], "defer_preference_default"
             )
         )
+        candidate_sort_order = tuple(
+            _require_string(item, "candidate_sort_order item")
+            for item in _require_list(data["candidate_sort_order"], "candidate_sort_order")
+        )
+        plan_score_order = tuple(
+            _require_string(item, "plan_score_order item")
+            for item in _require_list(data["plan_score_order"], "plan_score_order")
+        )
         if set(defer_preference) != SUPPORTED_PRIORITIES:
             raise InputValidationError(
                 "defer_preference_default must define Critical, High, Medium, and Low."
+            )
+        if tuple(dict.fromkeys(candidate_sort_order)) != candidate_sort_order:
+            raise InputValidationError("candidate_sort_order must not contain duplicates.")
+        if set(candidate_sort_order) != SUPPORTED_CANDIDATE_SORT_KEYS:
+            raise InputValidationError(
+                "candidate_sort_order must contain preserved_priority, defer_preference, "
+                "demand_desc, and original_index."
+            )
+        if tuple(dict.fromkeys(plan_score_order)) != plan_score_order:
+            raise InputValidationError("plan_score_order must not contain duplicates.")
+        if set(plan_score_order) != SUPPORTED_PLAN_SCORE_KEYS:
+            raise InputValidationError(
+                "plan_score_order must define all supported score components."
             )
         agentic_max_iterations = int(
             _require_non_negative_number(
@@ -118,6 +163,11 @@ class DefaultsConfig:
         )
         if agentic_candidate_limit < 1:
             raise InputValidationError("agentic_candidate_limit must be at least 1.")
+        log_level_default = _require_string(data["log_level_default"], "log_level_default").upper()
+        if log_level_default not in SUPPORTED_LOG_LEVELS:
+            raise InputValidationError(
+                f"log_level_default must be one of {sorted(SUPPORTED_LOG_LEVELS)}."
+            )
 
         parsed_size_multipliers = {
             _require_string(size_name, "feature_size_multipliers key"): (
@@ -154,6 +204,7 @@ class DefaultsConfig:
             ),
             feature_size_multipliers=parsed_size_multipliers,
             priority_rank=parsed_priority_rank,
+            log_level_default=log_level_default,
             utilization_target_min=_require_fraction(
                 data["utilization_target_min"], "utilization_target_min"
             ),
@@ -164,6 +215,8 @@ class DefaultsConfig:
                 data["buffer_target_ratio"], "buffer_target_ratio"
             ),
             defer_preference_default=defer_preference,
+            candidate_sort_order=candidate_sort_order,
+            plan_score_order=plan_score_order,
             agentic_max_iterations=agentic_max_iterations,
             agentic_candidate_limit=agentic_candidate_limit,
             output_precision=int(

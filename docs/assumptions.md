@@ -64,6 +64,8 @@ At each iteration:
 
 The default agentic loop bounds live in `config/defaults.json`.
 
+The candidate-sorting order and plan-scoring priority order also live in `config/defaults.json` so replanning policy is not buried in code.
+
 ## Business Goal Evaluation
 
 Hard constraints:
@@ -87,3 +89,9 @@ This keeps the output deterministic while still distinguishing low-value scope c
 ## Remaining Gap
 
 The current agentic loop is rule-based. A future version may add an optional LLM-backed advisor for richer candidate generation or narrative output, but all calculations should remain deterministic.
+
+## Logging and Errors
+
+- Runtime logging goes to standard error through Python's `logging` module.
+- The default log level lives in `config/defaults.json`.
+- CLI validation and output-write failures are returned as clean user-facing errors instead of raw tracebacks for common input and filesystem issues.

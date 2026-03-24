@@ -50,6 +50,7 @@ mypy src
 ## Project Rules
 
 - Runtime defaults live in `config/defaults.json`.
+- Logging defaults and replanning policy defaults also live in `config/defaults.json`.
 - Machine-readable inputs and outputs stay in JSON.
 - Formulas and planning assumptions live in Markdown docs.
 - Example JSON inputs live in `examples/`.

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,6 +13,8 @@ from capacity_planning_tool.models import (
     FeatureDemand,
     PlanningInput,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _round_number(value: float, precision: int) -> float:
@@ -121,19 +125,6 @@ def _buffer_dev_days(capacity_dev_days: float, demand_dev_days: float, *, precis
     return _round_number(capacity_dev_days - demand_dev_days, precision)
 
 
-def _sort_for_recommendation(
-    feature_demands: list[FeatureDemand], defaults: DefaultsConfig
-) -> list[FeatureDemand]:
-    return sorted(
-        feature_demands,
-        key=lambda item: (
-            defaults.priority_rank[item.feature.priority],
-            -item.demand_dev_days,
-            item.original_index,
-        ),
-    )
-
-
 def _feature_priority_value(feature: FeatureDemand, defaults: DefaultsConfig) -> int:
     return defaults.priority_rank[feature.feature.priority]
 
@@ -227,17 +218,20 @@ def _plan_score(
     utilization_gap = max(0.0, utilization - planning_input.business_goals.max_utilization)
     required_buffer = capacity_dev_days * planning_input.business_goals.min_buffer_ratio
     buffer_gap = max(0.0, required_buffer - buffer_dev_days)
-    return (
-        1 if acceptable else 0,
-        1 if goal_compliant else 0,
-        1 if feasibility else 0,
-        -len(business_goal_assessment["hard_constraint_violations"]),
-        -utilization_gap,
-        -buffer_gap,
-        -len(business_goal_assessment["soft_goal_violations"]),
-        delivered_priority_value,
-        -len(removed_features),
-    )
+    score_components: dict[str, Any] = {
+        "acceptable": 1 if acceptable else 0,
+        "goal_compliant": 1 if goal_compliant else 0,
+        "feasible": 1 if feasibility else 0,
+        "hard_constraint_violations": -len(
+            business_goal_assessment["hard_constraint_violations"]
+        ),
+        "utilization_gap": -utilization_gap,
+        "buffer_gap": -buffer_gap,
+        "soft_goal_violations": -len(business_goal_assessment["soft_goal_violations"]),
+        "delivered_priority_value": delivered_priority_value,
+        "removed_feature_count": -len(removed_features),
+    }
+    return tuple(score_components[key] for key in defaults.plan_score_order)
 
 
 def _evaluate_plan(
@@ -309,13 +303,18 @@ def _removable_features(
         for feature in evaluated_plan.delivered_features
         if feature.feature.reference not in planning_input.business_goals.must_deliver_feature_ids
     ]
+    candidate_keys: dict[str, Callable[[FeatureDemand], Any]] = {
+        "preserved_priority": lambda feature: (
+            feature.feature.priority in planning_input.business_goals.preserve_priorities
+        ),
+        "defer_preference": lambda feature: defer_rank[feature.feature.priority],
+        "demand_desc": lambda feature: -feature.demand_dev_days,
+        "original_index": lambda feature: feature.original_index,
+    }
     return sorted(
         removable,
-        key=lambda feature: (
-            feature.feature.priority in planning_input.business_goals.preserve_priorities,
-            defer_rank[feature.feature.priority],
-            -feature.demand_dev_days,
-            feature.original_index,
+        key=lambda feature: tuple(
+            candidate_keys[key](feature) for key in defaults.candidate_sort_order
         ),
     )
 
@@ -359,6 +358,11 @@ def _run_agentic_replanning_loop(
     defaults: DefaultsConfig,
 ) -> tuple[EvaluatedPlan, list[dict[str, Any]], list[dict[str, Any]]]:
     precision = defaults.output_precision
+    LOGGER.info(
+        "Starting replanning loop with max_iterations=%s candidate_limit=%s",
+        defaults.agentic_max_iterations,
+        defaults.agentic_candidate_limit,
+    )
     current_plan = _evaluate_plan(
         planning_input=planning_input,
         delivered_features=all_feature_demands,
@@ -372,10 +376,21 @@ def _run_agentic_replanning_loop(
 
     for iteration in range(defaults.agentic_max_iterations):
         if current_plan.goal_compliant:
+            LOGGER.info(
+                (
+                    "Stopping replanning early at iteration %s because "
+                    "the current plan is goal compliant"
+                ),
+                iteration + 1,
+            )
             break
 
         removable = _removable_features(current_plan, planning_input, defaults)
         if not removable:
+            LOGGER.warning(
+                "Stopping replanning at iteration %s because no removable features remain",
+                iteration + 1,
+            )
             iterations.append(
                 {
                     "iteration": iteration + 1,
@@ -417,6 +432,12 @@ def _run_agentic_replanning_loop(
             evaluated_candidates,
             key=lambda item: item[1].score,
         )
+        LOGGER.info(
+            "Iteration %s selected removal of %s with score %s",
+            iteration + 1,
+            selected_feature.feature.reference,
+            selected_plan.score,
+        )
         iterations.append(
             {
                 "iteration": iteration + 1,
@@ -441,6 +462,10 @@ def _run_agentic_replanning_loop(
             }
         )
         if selected_plan.score <= current_plan.score:
+            LOGGER.info(
+                "Stopping replanning at iteration %s because no better candidate was found",
+                iteration + 1,
+            )
             iterations.append(
                 {
                     "iteration": iteration + 1,
@@ -453,6 +478,12 @@ def _run_agentic_replanning_loop(
         if selected_plan.score > best_plan.score:
             best_plan = selected_plan
 
+    LOGGER.info(
+        "Completed replanning with selected demand=%s utilization=%s removed_features=%s",
+        best_plan.demand_dev_days,
+        best_plan.utilization,
+        len(best_plan.removed_features),
+    )
     return best_plan, all_alternatives, iterations
 
 
