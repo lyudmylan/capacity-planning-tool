@@ -10,6 +10,30 @@ Capacity Planning Tool is a JSON-in / JSON-out planning CLI. The current version
 - The original product brief is preserved in [`docs/product_spec.md`](docs/product_spec.md).
 - The agentic architecture and remaining future work are documented in [`docs/agentic_replanning_plan.md`](docs/agentic_replanning_plan.md).
 
+## Web UI
+
+The project includes a thin web interface for interactive planning. It wraps the existing planner with no duplicated logic.
+
+```bash
+# Start the UI server
+PYTHONPATH=src python3 -m capacity_planning_tool.server
+# or: make serve
+
+# Open http://127.0.0.1:5000 in your browser
+```
+
+The UI lets you:
+- Paste, upload, or drag-drop planning input JSON
+- Edit key planning fields in a structured form
+- Run the planner and inspect results (feasibility, utilization, scope decisions, business goals)
+- Copy or download raw output JSON
+
+### Architecture
+
+- **Backend**: A minimal Flask server (`server.py`) with two API endpoints: `POST /api/plan` (runs the planner) and `GET /api/examples` (loads example inputs). All calculations stay in the Python planner.
+- **Frontend**: A single `ui/index.html` file with embedded CSS and vanilla JavaScript. No build step, no npm, no framework dependencies.
+- **Dependency**: Flask is the only new runtime dependency.
+
 ## Quick Start
 
 ```bash
@@ -33,6 +57,7 @@ make run-infeasible
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -v
+node --test tests/ui_logic.test.mjs
 ruff check .
 mypy src
 ```

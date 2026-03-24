@@ -14,8 +14,12 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
   Contains deterministic planning calculations, business-goal evaluation, and the bounded agentic replanning loop.
 - `src/capacity_planning_tool/cli.py`
   Reads input JSON, runs the planner, and writes output JSON.
+- `src/capacity_planning_tool/server.py`
+  Minimal Flask server that bridges the UI to the existing planner.
+- `ui/index.html`
+  Single-page web UI driven by the JSON handoff contract.
 - `tests/`
-  Covers planning calculations, defaults, prioritization, and CLI behavior.
+  Covers planning calculations, defaults, prioritization, CLI behavior, and web API.
 - `docs/assumptions.md`
   Documents formulas, assumptions, and recommendation rules.
 - `docs/product_spec.md`
