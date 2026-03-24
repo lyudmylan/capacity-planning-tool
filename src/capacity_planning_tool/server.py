@@ -22,11 +22,11 @@ def create_app() -> Flask:
     """Build and return the Flask application."""
     app = Flask(__name__)
 
-    @app.route("/")  # type: ignore[untyped-decorator]
+    @app.route("/")
     def index() -> Response:
         return send_from_directory(str(UI_DIR), "index.html")
 
-    @app.route("/api/plan", methods=["POST"])  # type: ignore[untyped-decorator]
+    @app.route("/api/plan", methods=["POST"])
     def run_planner() -> tuple[Response, int]:
         body = request.get_json(silent=True)
         if body is None:
@@ -42,7 +42,7 @@ def create_app() -> Flask:
             return jsonify({"error": "Internal server error."}), 500
         return jsonify(result), 200
 
-    @app.route("/api/examples", methods=["GET"])  # type: ignore[untyped-decorator]
+    @app.route("/api/examples", methods=["GET"])
     def list_examples() -> tuple[Response, int]:
         examples: list[dict[str, Any]] = []
         for path in sorted(EXAMPLES_DIR.glob("*.json")):
