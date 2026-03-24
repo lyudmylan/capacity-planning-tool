@@ -28,6 +28,10 @@ class UiSpecTests(unittest.TestCase):
         self.assertIn("input_contract", spec)
         self.assertIn("output_contract", spec)
         self.assertIn("design_preferences", spec)
+        self.assertIn(
+            "show_plan_comparison",
+            spec["ui_surfaces"][0]["panels"][2]["capabilities"],
+        )
         self.assertEqual(
             spec["output_contract"]["required_top_level_fields"],
             [

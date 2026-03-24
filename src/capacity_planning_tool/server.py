@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 from flask import Flask, Response, jsonify, request, send_from_directory
@@ -16,6 +18,8 @@ LOGGER = logging.getLogger(__name__)
 
 UI_DIR = project_root() / "ui"
 EXAMPLES_DIR = project_root() / "examples"
+DEFAULT_SERVER_HOST = "127.0.0.1"
+DEFAULT_SERVER_PORT = 8000
 
 
 def create_app() -> Flask:
@@ -57,14 +61,18 @@ def create_app() -> Flask:
     return app
 
 
-def main() -> None:
-    """Run the development server."""
-    import argparse
-
+def build_parser() -> argparse.ArgumentParser:
+    """Build the server CLI parser."""
     parser = argparse.ArgumentParser(description="Capacity Planning UI server")
-    parser.add_argument("--host", default="127.0.0.1", help="Bind address")
-    parser.add_argument("--port", type=int, default=5000, help="Port number")
-    args = parser.parse_args()
+    parser.add_argument("--host", default=DEFAULT_SERVER_HOST, help="Bind address")
+    parser.add_argument("--port", type=int, default=DEFAULT_SERVER_PORT, help="Port number")
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """Run the development server."""
+    parser = build_parser()
+    args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     app = create_app()
     app.run(host=args.host, port=args.port, debug=True)

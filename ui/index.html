@@ -295,6 +295,74 @@ select.example-select {
   font-style: italic;
   padding: 8px 0;
 }
+.comparison-callout {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%);
+}
+.comparison-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.comparison-summary {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.comparison-card {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.comparison-card label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.comparison-card strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.comparison-delta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.comparison-delta.better { color: var(--green); }
+.comparison-delta.worse { color: var(--red); }
+.comparison-list {
+  list-style: none;
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.comparison-list li {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
 /* Goal panel */
 .goal-status {
   padding: 12px 16px;
@@ -579,6 +647,7 @@ details[open] summary::before { content: "\25BC\00a0"; }
 <script type="module">
 import {
   applyEditableFieldsToPayload,
+  buildPlanComparison,
   getUtilizationStatus,
   readEditableFieldsFromPayload,
 } from "/assets/app.js";
@@ -612,6 +681,7 @@ import {
   };
 
   let lastResult = null;
+  let lastInputData = null;
 
   // --- Load examples ---
   fetch("/api/examples").then(r => r.json()).then(examples => {
@@ -738,6 +808,7 @@ import {
         return;
       }
       lastResult = data;
+      lastInputData = inputData;
       inputJsonSnapshot.textContent = JSON.stringify(inputData, null, 2);
       outputJson.textContent = JSON.stringify(data, null, 2);
       renderResults(data);
@@ -805,6 +876,83 @@ import {
     const body = document.getElementById("scope-body");
     body.innerHTML = "";
 
+    if (lastInputData) {
+      const comparison = buildPlanComparison(lastInputData, data);
+      const comparisonBlock = document.createElement("div");
+      comparisonBlock.className = "comparison-callout";
+      comparisonBlock.innerHTML =
+        '<div class="comparison-title">Original vs Selected Plan</div>' +
+        '<div class="comparison-summary">' +
+        esc(
+          comparison.changed
+            ? "The selected plan trims scope to recover capacity and reduce delivery risk."
+            : "The original roadmap was kept as the selected plan with no scope cuts."
+        ) +
+        "</div>";
+
+      const comparisonGrid = document.createElement("div");
+      comparisonGrid.className = "comparison-grid";
+      comparisonGrid.appendChild(
+        buildComparisonCard(
+          "Requested Scope",
+          String(comparison.original_feature_count),
+          "features in the original roadmap"
+        )
+      );
+      comparisonGrid.appendChild(
+        buildComparisonCard(
+          "Delivered Now",
+          String(comparison.selected_delivered_count),
+          formatSignedDelta(
+            comparison.selected_delivered_count - comparison.original_feature_count,
+            "features vs original"
+          ),
+          comparison.delivered_delta_tone
+        )
+      );
+      comparisonGrid.appendChild(
+        buildComparisonCard(
+          "Demand Shift",
+          formatDays(comparison.selected_demand_dev_days),
+          formatSignedDelta(comparison.demand_delta_dev_days, "days vs original"),
+          comparison.demand_delta_tone
+        )
+      );
+      comparisonGrid.appendChild(
+        buildComparisonCard(
+          "Utilization Shift",
+          formatPercent(comparison.selected_utilization),
+          formatSignedDelta(
+            comparison.utilization_delta * 100,
+            "pts vs original"
+          ),
+          comparison.utilization_delta_tone
+        )
+      );
+      comparisonGrid.appendChild(
+        buildComparisonCard(
+          "Buffer Shift",
+          formatDays(comparison.selected_buffer_dev_days),
+          formatSignedDelta(comparison.buffer_delta_dev_days, "days vs original"),
+          comparison.buffer_delta_tone
+        )
+      );
+      comparisonBlock.appendChild(comparisonGrid);
+
+      if (comparison.removed_feature_names.length > 0) {
+        const removedList = document.createElement("ul");
+        removedList.className = "comparison-list";
+        comparison.removed_feature_names.forEach((name) => {
+          const item = document.createElement("li");
+          item.textContent = name;
+          removedList.appendChild(item);
+        });
+        comparisonBlock.appendChild(removedList);
+      }
+
+      body.appendChild(comparisonBlock);
+    }
+
     const sections = [
       {title: "Delivered", features: data.delivered_features, empty: "No features delivered"},
       {title: "Deferred", features: data.deferred_features, empty: "Nothing deferred"},
@@ -851,6 +999,36 @@ import {
       details.appendChild(pre);
       body.appendChild(details);
     }
+  }
+
+  function buildComparisonCard(label, value, deltaText, tone = "") {
+    const card = document.createElement("div");
+    card.className = "comparison-card";
+    card.innerHTML =
+      '<label>' + esc(label) + '</label>' +
+      '<strong>' + esc(value) + '</strong>';
+    if (deltaText) {
+      const delta = document.createElement("div");
+      delta.className = "comparison-delta " + tone;
+      delta.textContent = deltaText;
+      card.appendChild(delta);
+    }
+    return card;
+  }
+
+  function formatDays(value) {
+    return value + " days";
+  }
+
+  function formatPercent(value) {
+    return Math.round(value * 100) + "%";
+  }
+
+  function formatSignedDelta(value, suffix) {
+    if (value === 0) return "No change";
+    const rounded = Math.round(value * 100) / 100;
+    const sign = rounded > 0 ? "+" : "";
+    return sign + rounded + " " + suffix;
   }
 
   function renderGoals(data) {

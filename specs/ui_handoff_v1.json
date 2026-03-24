@@ -79,6 +79,7 @@
           "id": "scope_panel",
           "title": "Scope Decision",
           "capabilities": [
+            "show_plan_comparison",
             "show_delivered_features",
             "show_deferred_features",
             "show_dropped_features",

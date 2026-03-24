@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   applyEditableFieldsToPayload,
+  buildPlanComparison,
   getUtilizationStatus,
   readEditableFieldsFromPayload,
 } from "../ui/app.js";
@@ -74,4 +75,45 @@ test("getUtilizationStatus matches planner target semantics", () => {
   assert.equal(getUtilizationStatus(0.8), "feasible");
   assert.equal(getUtilizationStatus(0.9), "feasible");
   assert.equal(getUtilizationStatus(0.91), "infeasible");
+});
+
+test("buildPlanComparison highlights selected-plan changes against the original roadmap", () => {
+  const comparison = buildPlanComparison(
+    {
+      roadmap: {
+        features: [
+          {name: "Billing", size: "L", priority: "Critical"},
+          {name: "Export", size: "M", priority: "High"},
+          {name: "Theme Refresh", size: "L", priority: "Low"},
+        ],
+      },
+    },
+    {
+      demand_dev_days: 88,
+      utilization: 1.06,
+      buffer_dev_days: -4.8,
+      deferred_features: [],
+      dropped_features: [{name: "Theme Refresh"}],
+      selected_plan: {
+        demand_dev_days: 64,
+        utilization: 0.77,
+        buffer_dev_days: 19.2,
+        delivered_features: [
+          {name: "Billing"},
+          {name: "Export"},
+        ],
+      },
+    }
+  );
+
+  assert.equal(comparison.original_feature_count, 3);
+  assert.equal(comparison.selected_delivered_count, 2);
+  assert.equal(comparison.removed_feature_count, 1);
+  assert.deepEqual(comparison.removed_feature_names, ["Theme Refresh"]);
+  assert.equal(comparison.demand_delta_dev_days, -24);
+  assert.equal(comparison.demand_delta_tone, "better");
+  assert.equal(comparison.delivered_delta_tone, "worse");
+  assert.equal(comparison.buffer_delta_tone, "better");
+  assert.equal(comparison.utilization_delta_tone, "better");
+  assert.equal(comparison.changed, true);
 });

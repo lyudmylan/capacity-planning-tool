@@ -51,6 +51,7 @@ The first UI should stay narrow and operational:
 - load or paste planning input JSON
 - edit key planning fields in a structured form
 - run the planner
+- compare the original roadmap and the selected plan
 - inspect the selected plan, delivered scope, deferred scope, and dropped scope
 - inspect utilization, buffer, and business-goal assessment
 - view or export raw output JSON

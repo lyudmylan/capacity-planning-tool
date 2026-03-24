@@ -19,13 +19,14 @@ The project includes a thin web interface for interactive planning. It wraps the
 PYTHONPATH=src python3 -m capacity_planning_tool.server
 # or: make serve
 
-# Open http://127.0.0.1:5000 in your browser
+# Open http://127.0.0.1:8000 in your browser
 ```
 
 The UI lets you:
 - Paste, upload, or drag-drop planning input JSON
 - Edit key planning fields in a structured form
 - Run the planner and inspect results (feasibility, utilization, scope decisions, business goals)
+- Compare the original roadmap against the selected plan to see how demand, utilization, buffer, and scope changed
 - Copy or download raw output JSON
 
 ### Architecture

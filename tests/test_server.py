@@ -6,7 +6,7 @@ import json
 import unittest
 from pathlib import Path
 
-from capacity_planning_tool.server import create_app
+from capacity_planning_tool.server import DEFAULT_SERVER_PORT, build_parser, create_app
 
 
 class ServerApiTests(unittest.TestCase):
@@ -33,6 +33,12 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b"getUtilizationStatus", resp.data)
         resp.close()
+
+    def test_server_parser_defaults_to_port_8000(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args([])
+        self.assertEqual(args.port, DEFAULT_SERVER_PORT)
+        self.assertEqual(args.port, 8000)
 
     def test_plan_feasible_input(self) -> None:
         data = self._load_example("feasible_plan.json")
