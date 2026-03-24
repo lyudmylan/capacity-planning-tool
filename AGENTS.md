@@ -22,8 +22,12 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
   Preserves the original requested product spec and notes the current V1 gap.
 - `docs/agentic_replanning_plan.md`
   Defines the planned bounded agentic replanning architecture for the next iteration.
+- `docs/ui_json_spec.md`
+  Defines the JSON-first UI handoff model for future human and agent-facing interfaces.
 - `docs/shipping_workflow.md`
   Defines the GitHub shipping standard for routine changes.
+- `specs/ui_handoff_v1.json`
+  Machine-readable UI source-of-truth for agent handoff and future web implementation.
 - `examples/`
   Provides sample JSON inputs for quick validation.
 
@@ -31,12 +35,26 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
 
 - Keep all machine-readable inputs and outputs in JSON.
 - Keep runtime defaults and domain numeric constants in `config/defaults.json`.
+- Keep UI/product surface contracts that need to be read by agents in JSON spec files under `specs/`.
 - Keep formulas, assumptions, and product reasoning in Markdown docs rather than inline comments.
 - Prefer pure functions for calculations.
 - Keep business-goal evaluation deterministic even when agentic behavior is added.
 - Use dataclasses and explicit type hints.
 - Validate input early and fail with actionable error messages.
 - Preserve feature order in delivered output unless recommendation logic removes items.
+- Avoid hardcoding change-prone policy in code.
+  Put defaults, thresholds, scoring order, log defaults, and machine-readable UI contracts in JSON files.
+- Use hardcoded literals in Python only for stable control flow, small fixed enums, and code structure.
+
+## Error Handling and Logging
+
+- Handle expected failures with clean user-facing errors rather than raw Python tracebacks.
+- Treat invalid input, unreadable config, and output write failures as first-class CLI error cases.
+- Keep machine-readable JSON on stdout.
+- Send runtime logging to stderr through Python's `logging` module.
+- Keep logging configurable and quiet by default for CLI usage.
+- Log major planner decisions and stop conditions at appropriate levels so troubleshooting does not require stepping through code.
+- Do not silently swallow exceptions just to keep the CLI running.
 
 ## Shipping Workflow
 
@@ -57,7 +75,7 @@ Use this sequence for routine code changes unless the task explicitly calls for 
 ### Delegation Guidance
 
 - Keep test execution, fixes, commit, push, and CI checks in the main thread.
-- If parallel help is useful, use one sub-agent for an independent review pass.
+- For meaningful code changes, prefer using one sub-agent for an independent external-style review pass.
 - Do not split each step into a separate sub-agent unless the work is unusually large or the write scopes are cleanly separated.
 
 ### Merge Standard
@@ -84,13 +102,25 @@ Do not push as complete if:
 - Keep forward-looking design work in dedicated docs such as `docs/agentic_replanning_plan.md`.
 - Update or add JSON examples when input or output shapes change.
 - Add or update tests with every feature or bug fix.
+- Add or update tests for every schema change, planner behavior change, logging behavior change, and agentic loop change.
 - Review the business-goal and replanning rules after planner changes.
 - Keep runtime defaults and iteration limits in JSON config.
-- Keep the product intentionally simple:
-  - no UI
+- Keep stdout JSON-compatible for automation use.
+- Keep the planner core intentionally simple:
   - no database
   - no external integrations
   - no weekly or sprint-level scheduling allocation
+- If a UI is added, keep it thin and driven by the JSON handoff spec instead of embedding planner logic in the frontend.
+
+## UI Handoff Rules
+
+- The next UI phase should be driven by a JSON-first spec that can be consumed by agents and also rendered by a human-facing web interface.
+- Treat `specs/ui_handoff_v1.json` as the machine-readable source of truth for UI scope and behavior.
+- Treat `docs/ui_json_spec.md` as the human-readable explanation of that contract.
+- If a UI is built, update the JSON spec first, then the implementation, then the docs and tests.
+- Keep the planner as the source of truth for calculations and output JSON.
+- UI work may be delegated to Claude Code when the handoff contract is explicit and versioned.
+- Keep UI logic from duplicating planner calculations in the frontend.
 
 ## Extension Notes
 

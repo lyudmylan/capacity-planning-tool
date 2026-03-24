@@ -99,6 +99,20 @@ Given team capacity, planning horizon, and roadmap demand, determine whether the
 - provide a CLI entry point
 - keep V1 simple: no UI, no DB, no integrations, no scheduling by week or sprint allocation
 
+## New Direction For The Next Phase
+
+The next phase may add a UI, but it should follow a JSON-first contract so it remains useful for both coding agents and human users.
+
+### UI Direction
+
+- define the UI in a machine-readable JSON spec first
+- keep that spec versioned in the repo
+- let coding agents implement against the JSON contract instead of prose-only requests
+- ensure a future web interface maps directly to planner JSON inputs and outputs
+- keep calculations out of the frontend
+
+The human-readable explanation for this direction lives in [`ui_json_spec.md`](ui_json_spec.md), and the machine-readable handoff contract lives in [`../specs/ui_handoff_v1.json`](../specs/ui_handoff_v1.json).
+
 ## Current Implementation Status
 
 The current implementation satisfies most of the deterministic planning and repository-engineering parts of this spec:
@@ -132,3 +146,5 @@ The remaining gap is narrower now:
 ## Next Step
 
 The remaining optional extension is documented in [`agentic_replanning_plan.md`](agentic_replanning_plan.md). If we add an LLM later, it should sit on top of the deterministic evaluator rather than replacing the calculation layer.
+
+The next interface-oriented extension is documented in [`ui_json_spec.md`](ui_json_spec.md), with the machine-readable contract in [`../specs/ui_handoff_v1.json`](../specs/ui_handoff_v1.json).

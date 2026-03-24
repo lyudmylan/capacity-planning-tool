@@ -1,0 +1,169 @@
+{
+  "spec_id": "capacity-planning-ui-handoff",
+  "spec_version": "1.0",
+  "status": "draft",
+  "purpose": "Machine-readable handoff contract for a future UI that can be implemented by coding agents and used by human operators.",
+  "source_of_truth": {
+    "product_spec_doc": "docs/product_spec.md",
+    "ui_explainer_doc": "docs/ui_json_spec.md",
+    "planner_input_examples": [
+      "examples/feasible_plan.json",
+      "examples/infeasible_plan.json",
+      "examples/goal_driven_plan.json"
+    ]
+  },
+  "delivery_model": {
+    "preferred_ui_builder": "Claude Code",
+    "review_owner": "Main repo workflow",
+    "interaction_modes": [
+      "agent_consumed",
+      "human_web_interface"
+    ]
+  },
+  "product_constraints": {
+    "machine_readable_io": "json_only",
+    "planner_calculations": "deterministic_backend_only",
+    "frontend_calculation_policy": "must_not_duplicate_planner_logic",
+    "data_persistence": "none_for_v1_ui",
+    "integrations": "none_for_v1_ui"
+  },
+  "primary_user_jobs": [
+    {
+      "id": "load_plan_input",
+      "description": "Load, paste, or edit a planning input JSON payload."
+    },
+    {
+      "id": "run_planner",
+      "description": "Execute the planner and receive structured output."
+    },
+    {
+      "id": "review_plan_outcome",
+      "description": "Inspect feasibility, utilization, buffer, delivered scope, deferred scope, and dropped scope."
+    },
+    {
+      "id": "review_goal_alignment",
+      "description": "Inspect business-goal assessment and selected plan details."
+    },
+    {
+      "id": "export_output_json",
+      "description": "Copy or download raw output JSON for agent or system use."
+    }
+  ],
+  "ui_surfaces": [
+    {
+      "id": "planner_workspace",
+      "title": "Capacity Planner",
+      "kind": "single_page_workspace",
+      "panels": [
+        {
+          "id": "input_panel",
+          "title": "Planning Input",
+          "capabilities": [
+            "paste_json",
+            "upload_json",
+            "structured_edit"
+          ]
+        },
+        {
+          "id": "summary_panel",
+          "title": "Plan Summary",
+          "capabilities": [
+            "show_capacity_dev_days",
+            "show_demand_dev_days",
+            "show_utilization",
+            "show_feasibility",
+            "show_buffer_dev_days"
+          ]
+        },
+        {
+          "id": "scope_panel",
+          "title": "Scope Decision",
+          "capabilities": [
+            "show_delivered_features",
+            "show_deferred_features",
+            "show_dropped_features",
+            "show_selected_plan"
+          ]
+        },
+        {
+          "id": "goal_panel",
+          "title": "Business Goals",
+          "capabilities": [
+            "show_business_goal_assessment",
+            "show_agentic_iterations",
+            "show_evaluated_alternatives"
+          ]
+        },
+        {
+          "id": "json_panel",
+          "title": "Raw JSON",
+          "capabilities": [
+            "show_input_json",
+            "show_output_json",
+            "copy_output_json",
+            "download_output_json"
+          ]
+        }
+      ]
+    }
+  ],
+  "input_contract": {
+    "format": "planner_input_json",
+    "required_top_level_fields": [
+      "team_structure",
+      "planning_horizon",
+      "working_days",
+      "holidays_days",
+      "vacation_days",
+      "sick_days",
+      "roadmap"
+    ],
+    "optional_top_level_fields": [
+      "focus_factor",
+      "sprint_days",
+      "overhead_days_per_sprint",
+      "business_goals"
+    ]
+  },
+  "output_contract": {
+    "format": "planner_output_json",
+    "required_top_level_fields": [
+      "capacity_dev_days",
+      "demand_dev_days",
+      "utilization",
+      "feasibility",
+      "buffer_dev_days",
+      "delivered_features",
+      "deferred_features",
+      "dropped_features",
+      "risks",
+      "suggestions",
+      "tradeoff_summary",
+      "selected_plan",
+      "business_goal_assessment",
+      "evaluated_alternatives",
+      "agentic_iterations"
+    ]
+  },
+  "interaction_rules": [
+    "stdout_json_cleanliness_matters_for_cli_automation",
+    "ui_must_display_raw_json_without_loss",
+    "ui_must_allow_human_friendly_editing_without_changing_schema_meaning",
+    "ui_should_make_scope_cuts_and_tradeoffs_easy_to_scan",
+    "ui_should_highlight_infeasibility_and_goal_violations_prominently"
+  ],
+  "design_preferences": {
+    "quality_bar": "clean_structured_beautiful",
+    "avoid": [
+      "generic_dashboard_chrome",
+      "hidden_business_logic",
+      "decorative_visual_noise"
+    ],
+    "emphasize": [
+      "clarity",
+      "visual_hierarchy",
+      "decision_support",
+      "json_transparency"
+    ]
+  }
+}

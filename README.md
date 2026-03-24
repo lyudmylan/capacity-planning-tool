@@ -45,10 +45,14 @@ mypy src
   Current formulas, assumptions, and behavior notes.
 - [`docs/agentic_replanning_plan.md`](docs/agentic_replanning_plan.md)
   The implemented agentic replanning design plus remaining gaps and next steps.
+- [`docs/ui_json_spec.md`](docs/ui_json_spec.md)
+  The human-readable guide for the future JSON-first UI contract.
 - [`docs/shipping_workflow.md`](docs/shipping_workflow.md)
   Standard implementation, review, GitHub push, and CI flow.
 - [`AGENTS.md`](AGENTS.md)
   Repository instructions for coding agents.
+- [`specs/ui_handoff_v1.json`](specs/ui_handoff_v1.json)
+  Machine-readable UI handoff spec for agent-built and human-facing interfaces.
 
 ## Project Rules
 
