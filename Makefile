@@ -3,10 +3,13 @@ PYTHON = .venv/bin/python
 RUFF = .venv/bin/ruff
 MYPY = .venv/bin/mypy
 
-.PHONY: test lint typecheck check run-feasible run-infeasible serve
+.PHONY: test ui-test lint typecheck check run-feasible run-infeasible serve
 
 test:
 	$(PYTHONPATH_SRC) $(PYTHON) -m unittest discover -s tests
+
+ui-test:
+	node --test tests/ui_logic.test.mjs
 
 lint:
 	$(RUFF) check .
@@ -14,7 +17,7 @@ lint:
 typecheck:
 	$(MYPY) src
 
-check: test lint typecheck
+check: test ui-test lint typecheck
 
 run-feasible:
 	$(PYTHONPATH_SRC) $(PYTHON) -m capacity_planning_tool --input examples/feasible_plan.json

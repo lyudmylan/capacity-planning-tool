@@ -57,6 +57,7 @@ make run-infeasible
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -v
+node --test tests/ui_logic.test.mjs
 ruff check .
 mypy src
 ```

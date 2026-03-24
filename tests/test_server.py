@@ -26,6 +26,13 @@ class ServerApiTests(unittest.TestCase):
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b"Capacity Planner", resp.data)
+        resp.close()
+
+    def test_ui_asset_is_served(self) -> None:
+        resp = self.client.get("/assets/app.js")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(b"getUtilizationStatus", resp.data)
+        resp.close()
 
     def test_plan_feasible_input(self) -> None:
         data = self._load_example("feasible_plan.json")

@@ -26,6 +26,10 @@ def create_app() -> Flask:
     def index() -> Response:
         return send_from_directory(str(UI_DIR), "index.html")
 
+    @app.route("/assets/<path:asset_path>")
+    def asset(asset_path: str) -> Response:
+        return send_from_directory(str(UI_DIR), asset_path)
+
     @app.route("/api/plan", methods=["POST"])
     def run_planner() -> tuple[Response, int]:
         body = request.get_json(silent=True)

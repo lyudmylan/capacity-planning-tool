@@ -576,7 +576,13 @@ details[open] summary::before { content: "\25BC\00a0"; }
   </div>
 </main>
 
-<script>
+<script type="module">
+import {
+  applyEditableFieldsToPayload,
+  getUtilizationStatus,
+  readEditableFieldsFromPayload,
+} from "/assets/app.js";
+
 (function() {
   "use strict";
 
@@ -669,41 +675,32 @@ details[open] summary::before { content: "\25BC\00a0"; }
   // --- Form <-> JSON sync ---
   function syncFormFromJson() {
     try {
-      const data = JSON.parse(jsonInput.value);
-      if (data.planning_horizon) formFields.horizon.value = data.planning_horizon;
-      if (data.working_days != null) formFields.workingDays.value = data.working_days;
-      if (data.holidays_days != null) formFields.holidays.value = data.holidays_days;
-      if (data.vacation_days != null) formFields.vacation.value = data.vacation_days;
-      if (data.sick_days != null) formFields.sick.value = data.sick_days;
-      if (data.focus_factor != null) formFields.focus.value = data.focus_factor;
-      if (data.sprint_days != null) formFields.sprintDays.value = data.sprint_days;
-      if (data.overhead_days_per_sprint != null) formFields.overhead.value = data.overhead_days_per_sprint;
+      const editableFields = readEditableFieldsFromPayload(JSON.parse(jsonInput.value));
+      if (editableFields.planning_horizon) formFields.horizon.value = editableFields.planning_horizon;
+      if (editableFields.working_days != null) formFields.workingDays.value = editableFields.working_days;
+      if (editableFields.holidays_days != null) formFields.holidays.value = editableFields.holidays_days;
+      if (editableFields.vacation_days != null) formFields.vacation.value = editableFields.vacation_days;
+      if (editableFields.sick_days != null) formFields.sick.value = editableFields.sick_days;
+      if (editableFields.focus_factor != null) formFields.focus.value = editableFields.focus_factor;
+      if (editableFields.sprint_days != null) formFields.sprintDays.value = editableFields.sprint_days;
+      if (editableFields.overhead_days_per_sprint != null) formFields.overhead.value = editableFields.overhead_days_per_sprint;
     } catch(e) { /* ignore parse errors during typing */ }
-  }
-
-  function numOrSkip(val) {
-    const n = parseFloat(val);
-    return isNaN(n) ? undefined : n;
   }
 
   function syncJsonFromForm() {
     try {
       const data = JSON.parse(jsonInput.value);
-      data.planning_horizon = formFields.horizon.value;
-      const fields = [
-        ["working_days", formFields.workingDays],
-        ["holidays_days", formFields.holidays],
-        ["vacation_days", formFields.vacation],
-        ["sick_days", formFields.sick],
-        ["focus_factor", formFields.focus],
-        ["sprint_days", formFields.sprintDays],
-        ["overhead_days_per_sprint", formFields.overhead],
-      ];
-      fields.forEach(function(pair) {
-        const v = numOrSkip(pair[1].value);
-        if (v !== undefined) data[pair[0]] = v;
+      const nextData = applyEditableFieldsToPayload(data, {
+        planning_horizon: formFields.horizon.value,
+        working_days: formFields.workingDays.value,
+        holidays_days: formFields.holidays.value,
+        vacation_days: formFields.vacation.value,
+        sick_days: formFields.sick.value,
+        focus_factor: formFields.focus.value,
+        sprint_days: formFields.sprintDays.value,
+        overhead_days_per_sprint: formFields.overhead.value,
       });
-      jsonInput.value = JSON.stringify(data, null, 2);
+      jsonInput.value = JSON.stringify(nextData, null, 2);
     } catch(e) { /* ignore if JSON is invalid */ }
   }
 
@@ -711,6 +708,7 @@ details[open] summary::before { content: "\25BC\00a0"; }
     field.addEventListener("change", syncJsonFromForm);
     field.addEventListener("input", syncJsonFromForm);
   });
+  jsonInput.addEventListener("input", syncFormFromJson);
 
   // --- Run planner ---
   runBtn.addEventListener("click", runPlanner);
@@ -781,7 +779,7 @@ details[open] summary::before { content: "\25BC\00a0"; }
       banner.textContent = "Plan is infeasible — demand exceeds capacity";
     }
 
-    const utilClass = data.utilization > 0.9 ? "infeasible" : data.utilization > 0.8 ? "warning" : "feasible";
+    const utilClass = getUtilizationStatus(data.utilization);
     const grid = document.getElementById("summary-grid");
     grid.innerHTML = "";
     const metrics = [
