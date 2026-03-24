@@ -28,6 +28,7 @@ class CliTests(unittest.TestCase):
         )
 
         result = json.loads(completed.stdout)
+        self.assertEqual(completed.stderr, "")
         self.assertIn("capacity_dev_days", result)
         self.assertEqual(result["deferred_features"], [])
         self.assertIn("selected_plan", result)
@@ -57,12 +58,62 @@ class CliTests(unittest.TestCase):
             )
 
             result = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(result["selected_plan"]["goal_compliant"], True)
             self.assertIn("tradeoff_summary", result)
             self.assertIn("agentic_iterations", result)
             self.assertEqual(
                 [feature["name"] for feature in result["dropped_features"]],
                 ["Theme Refresh"],
             )
+
+    def test_cli_can_enable_info_logging(self) -> None:
+        input_path = PROJECT_ROOT / "examples" / "feasible_plan.json"
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(PROJECT_ROOT / "src")
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "capacity_planning_tool",
+                "--input",
+                str(input_path),
+                "--log-level",
+                "INFO",
+            ],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+        self.assertIn("INFO capacity_planning_tool.cli:", completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertIn("capacity_dev_days", result)
+
+    def test_cli_quiet_flag_suppresses_info_logging(self) -> None:
+        input_path = PROJECT_ROOT / "examples" / "infeasible_plan.json"
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(PROJECT_ROOT / "src")
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "capacity_planning_tool",
+                "--input",
+                str(input_path),
+                "--quiet",
+            ],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+        self.assertEqual(completed.stderr, "")
+        result = json.loads(completed.stdout)
+        self.assertFalse(result["feasibility"])
 
     def test_cli_reports_output_write_errors_cleanly(self) -> None:
         input_path = PROJECT_ROOT / "examples" / "feasible_plan.json"
@@ -92,6 +143,6 @@ class CliTests(unittest.TestCase):
     def test_defaults_include_logging_and_policy_settings(self) -> None:
         defaults = load_defaults()
 
-        self.assertEqual(defaults.log_level_default, "INFO")
+        self.assertEqual(defaults.log_level_default, "WARNING")
         self.assertIn("acceptable", defaults.plan_score_order)
         self.assertIn("defer_preference", defaults.candidate_sort_order)

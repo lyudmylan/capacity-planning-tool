@@ -93,5 +93,6 @@ The current agentic loop is rule-based. A future version may add an optional LLM
 ## Logging and Errors
 
 - Runtime logging goes to standard error through Python's `logging` module.
-- The default log level lives in `config/defaults.json`.
+- The default log level lives in `config/defaults.json` and is currently `WARNING` so normal CLI runs keep stdout clean for JSON consumers.
+- `--log-level` can raise verbosity for troubleshooting, and `--quiet` suppresses everything except errors.
 - CLI validation and output-write failures are returned as clean user-facing errors instead of raw tracebacks for common input and filesystem issues.

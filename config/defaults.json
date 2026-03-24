@@ -15,7 +15,7 @@
     "High": 3,
     "Critical": 4
   },
-  "log_level_default": "INFO",
+  "log_level_default": "WARNING",
   "utilization_target_min": 0.8,
   "utilization_target_max": 0.9,
   "buffer_target_ratio": 0.1,

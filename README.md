@@ -15,7 +15,10 @@ Capacity Planning Tool is a JSON-in / JSON-out planning CLI. The current version
 ```bash
 PYTHONPATH=src python3 -m capacity_planning_tool --input examples/feasible_plan.json
 PYTHONPATH=src python3 -m capacity_planning_tool --input examples/goal_driven_plan.json
+PYTHONPATH=src python3 -m capacity_planning_tool --input examples/infeasible_plan.json --log-level INFO
 ```
+
+Normal CLI runs default to warning-level logging so stdout stays clean JSON. Use `--log-level INFO` when you want runtime trace output, or `--quiet` to suppress everything except errors.
 
 ## Shortcuts
 

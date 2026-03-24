@@ -10,7 +10,11 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from capacity_planning_tool.config import load_defaults
-from capacity_planning_tool.models import InputValidationError, PlanningInput
+from capacity_planning_tool.models import (
+    SUPPORTED_LOG_LEVELS,
+    InputValidationError,
+    PlanningInput,
+)
 from capacity_planning_tool.planner import plan_capacity
 
 LOGGER = logging.getLogger(__name__)
@@ -27,6 +31,18 @@ def _build_parser() -> argparse.ArgumentParser:
         required=False,
         help="Optional path to write the output JSON. Defaults to stdout.",
     )
+    log_level_group = parser.add_mutually_exclusive_group()
+    log_level_group.add_argument(
+        "--log-level",
+        required=False,
+        choices=sorted(SUPPORTED_LOG_LEVELS),
+        help="Override the runtime log level.",
+    )
+    log_level_group.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress informational logs and only emit errors.",
+    )
     return parser
 
 
@@ -41,6 +57,7 @@ def _configure_logging(level_name: str) -> None:
     logging.basicConfig(
         level=getattr(logging, level_name.upper(), logging.INFO),
         format="%(levelname)s %(name)s: %(message)s",
+        force=True,
     )
 
 
@@ -56,7 +73,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         defaults = load_defaults()
-        _configure_logging(defaults.log_level_default)
+        configured_log_level = (
+            "ERROR"
+            if args.quiet
+            else args.log_level
+            if args.log_level is not None
+            else defaults.log_level_default
+        )
+        _configure_logging(configured_log_level)
         LOGGER.info("Loading planning input from %s", input_path)
         planning_input = _read_input(input_path)
         result = plan_capacity(planning_input, defaults)
