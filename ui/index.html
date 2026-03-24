@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capacity Planner</title>
+<style>
+:root {
+  --bg: #f8f9fa;
+  --surface: #ffffff;
+  --border: #e2e5e9;
+  --text: #1a1d21;
+  --text-secondary: #5e6370;
+  --accent: #2563eb;
+  --accent-light: #eff4ff;
+  --green: #16a34a;
+  --green-bg: #f0fdf4;
+  --red: #dc2626;
+  --red-bg: #fef2f2;
+  --amber: #d97706;
+  --amber-bg: #fffbeb;
+  --mono: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.app-header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.app-header .version {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.workspace {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.panel-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.panel-header h2 {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.panel-body { padding: 20px; }
+/* Input panel */
+.input-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.btn {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.btn:hover { background: var(--bg); border-color: #c8ccd3; }
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn-primary:hover { background: #1d4ed8; }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+select.example-select {
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.json-editor {
+  width: 100%;
+  min-height: 320px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fafbfc;
+  color: var(--text);
+  resize: vertical;
+  tab-size: 2;
+}
+.json-editor:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.file-drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 12px;
+  transition: border-color .2s, background .2s;
+}
+.file-drop-zone.dragover { border-color: var(--accent); background: var(--accent-light); }
+/* Structured editor */
+.structured-editor { margin-top: 16px; }
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.field-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.field-group input, .field-group select {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+}
+.field-group input:focus, .field-group select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.tab-bar button {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color .15s;
+}
+.tab-bar button.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-bar button:hover { color: var(--text); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+/* Error bar */
+.error-bar {
+  display: none;
+  background: var(--red-bg);
+  border: 1px solid #fecaca;
+  color: var(--red);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.error-bar.visible { display: block; }
+/* Summary panel */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.metric-card {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.metric-value {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.metric-value.feasible { color: var(--green); }
+.metric-value.infeasible { color: var(--red); }
+.metric-value.warning { color: var(--amber); }
+/* Feasibility banner */
+.feasibility-banner {
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.feasibility-banner.feasible { background: var(--green-bg); color: var(--green); border: 1px solid #bbf7d0; }
+.feasibility-banner.infeasible { background: var(--red-bg); color: var(--red); border: 1px solid #fecaca; }
+/* Scope panel */
+.feature-list { list-style: none; }
+.feature-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: var(--bg);
+  font-size: 13px;
+}
+.feature-item:last-child { margin-bottom: 0; }
+.feature-name { font-weight: 500; flex: 1; }
+.feature-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.badge-size { background: #e8eaed; color: #444; }
+.badge-critical { background: #fecaca; color: #991b1b; }
+.badge-high { background: #fed7aa; color: #9a3412; }
+.badge-medium { background: #fef08a; color: #854d0e; }
+.badge-low { background: #e2e5e9; color: #5e6370; }
+.scope-section { margin-bottom: 20px; }
+.scope-section:last-child { margin-bottom: 0; }
+.scope-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.scope-empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 8px 0;
+}
+/* Goal panel */
+.goal-status {
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.goal-status.compliant { background: var(--green-bg); border: 1px solid #bbf7d0; color: var(--green); }
+.goal-status.acceptable { background: var(--amber-bg); border: 1px solid #fde68a; color: var(--amber); }
+.goal-status.violated { background: var(--red-bg); border: 1px solid #fecaca; color: var(--red); }
+.violation-list {
+  list-style: none;
+  margin-top: 8px;
+}
+.violation-list li {
+  font-size: 13px;
+  padding: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+.violation-list li::before {
+  content: "\2022";
+  position: absolute;
+  left: 0;
+}
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.info-item label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 2px;
+}
+.info-item span { font-size: 13px; }
+/* Risks & suggestions */
+.text-list { list-style: none; }
+.text-list li {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-left: 3px solid var(--border);
+  margin-bottom: 6px;
+  background: var(--bg);
+  border-radius: 0 4px 4px 0;
+}
+.text-list.risks li { border-left-color: var(--red); }
+.text-list.suggestions li { border-left-color: var(--accent); }
+.text-list.tradeoffs li { border-left-color: var(--amber); }
+/* Iterations */
+.iteration-item {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  background: var(--bg);
+  font-size: 13px;
+}
+.iteration-header {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+/* JSON panel */
+.json-output {
+  width: 100%;
+  min-height: 300px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fafbfc;
+  color: var(--text);
+  resize: vertical;
+  white-space: pre;
+  overflow: auto;
+}
+.json-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+/* Hidden results */
+.results-area { display: none; }
+.results-area.visible { display: flex; flex-direction: column; gap: 20px; }
+/* Two-column layout for output panels */
+.output-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 800px) {
+  .output-columns { grid-template-columns: 1fr; }
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+}
+/* Loading spinner */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Collapsible sections */
+details summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  list-style: none;
+}
+details summary::before { content: "\25B6\00a0"; font-size: 10px; }
+details[open] summary::before { content: "\25BC\00a0"; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>Capacity Planner</h1>
+  <span class="version">v1</span>
+</header>
+
+<main class="workspace">
+  <!-- Input Panel -->
+  <section class="panel" id="input-panel">
+    <div class="panel-header">
+      <h2>Planning Input</h2>
+      <div class="input-controls">
+        <select class="example-select" id="example-select">
+          <option value="">Load example...</option>
+        </select>
+        <label class="btn btn-sm" style="margin:0">
+          Upload JSON
+          <input type="file" accept=".json" id="file-upload" style="display:none">
+        </label>
+        <button class="btn btn-primary" id="run-btn">Run Planner</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="file-drop-zone" id="drop-zone">Drop a JSON file here</div>
+      <div class="error-bar" id="input-error"></div>
+
+      <div class="tab-bar">
+        <button class="active" data-tab="json-tab">JSON</button>
+        <button data-tab="form-tab">Structured Edit</button>
+      </div>
+
+      <div id="json-tab" class="tab-content active">
+        <textarea class="json-editor" id="json-input" spellcheck="false" placeholder='Paste planning JSON here...'></textarea>
+      </div>
+
+      <div id="form-tab" class="tab-content">
+        <div class="structured-editor">
+          <div class="field-grid">
+            <div class="field-group">
+              <label>Planning Horizon</label>
+              <select id="f-horizon">
+                <option value="sprint">Sprint</option>
+                <option value="month">Month</option>
+                <option value="quarter" selected>Quarter</option>
+                <option value="half_year">Half Year</option>
+                <option value="year">Year</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label>Working Days</label>
+              <input type="number" id="f-working-days" min="0" value="60">
+            </div>
+            <div class="field-group">
+              <label>Holidays</label>
+              <input type="number" id="f-holidays" min="0" value="2">
+            </div>
+            <div class="field-group">
+              <label>Vacation Days</label>
+              <input type="number" id="f-vacation" min="0" value="5">
+            </div>
+            <div class="field-group">
+              <label>Sick Days</label>
+              <input type="number" id="f-sick" min="0" value="1">
+            </div>
+            <div class="field-group">
+              <label>Focus Factor</label>
+              <input type="number" id="f-focus" min="0" max="1" step="0.05" value="0.8">
+            </div>
+            <div class="field-group">
+              <label>Sprint Days</label>
+              <input type="number" id="f-sprint-days" min="1" value="10">
+            </div>
+            <div class="field-group">
+              <label>Overhead / Sprint</label>
+              <input type="number" id="f-overhead" min="0" value="2">
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--text-secondary);margin-top:12px;">
+            Team structure, roadmap features, and business goals are edited in the JSON tab.
+            Changes here sync to JSON automatically.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <div class="results-area" id="results">
+    <!-- Summary Panel -->
+    <section class="panel" id="summary-panel">
+      <div class="panel-header"><h2>Plan Summary</h2></div>
+      <div class="panel-body">
+        <div id="feasibility-banner" class="feasibility-banner"></div>
+        <div class="summary-grid" id="summary-grid"></div>
+      </div>
+    </section>
+
+    <!-- Risks / Suggestions / Tradeoffs -->
+    <div class="output-columns">
+      <section class="panel">
+        <div class="panel-header"><h2>Risks &amp; Tradeoffs</h2></div>
+        <div class="panel-body">
+          <div id="risks-container"></div>
+          <div id="tradeoff-container" style="margin-top:14px"></div>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-header"><h2>Suggestions</h2></div>
+        <div class="panel-body">
+          <div id="suggestions-container"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Scope Panel -->
+    <section class="panel" id="scope-panel">
+      <div class="panel-header"><h2>Scope Decision</h2></div>
+      <div class="panel-body" id="scope-body"></div>
+    </section>
+
+    <!-- Goal Panel -->
+    <section class="panel" id="goal-panel">
+      <div class="panel-header"><h2>Business Goals</h2></div>
+      <div class="panel-body" id="goal-body"></div>
+    </section>
+
+    <!-- JSON Panel -->
+    <section class="panel" id="json-panel">
+      <div class="panel-header">
+        <h2>Raw JSON</h2>
+        <div class="json-actions">
+          <button class="btn btn-sm" id="copy-output-btn">Copy</button>
+          <button class="btn btn-sm" id="download-output-btn">Download</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="tab-bar">
+          <button class="active" data-tab="output-json-tab">Output</button>
+          <button data-tab="input-json-tab">Input</button>
+        </div>
+        <div id="output-json-tab" class="tab-content active">
+          <pre class="json-output" id="output-json"></pre>
+        </div>
+        <div id="input-json-tab" class="tab-content">
+          <pre class="json-output" id="input-json-snapshot"></pre>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function() {
+  "use strict";
+
+  // DOM refs
+  const jsonInput = document.getElementById("json-input");
+  const runBtn = document.getElementById("run-btn");
+  const exampleSelect = document.getElementById("example-select");
+  const fileUpload = document.getElementById("file-upload");
+  const dropZone = document.getElementById("drop-zone");
+  const inputError = document.getElementById("input-error");
+  const resultsArea = document.getElementById("results");
+  const outputJson = document.getElementById("output-json");
+  const inputJsonSnapshot = document.getElementById("input-json-snapshot");
+  const copyBtn = document.getElementById("copy-output-btn");
+  const downloadBtn = document.getElementById("download-output-btn");
+
+  // Form fields
+  const formFields = {
+    horizon: document.getElementById("f-horizon"),
+    workingDays: document.getElementById("f-working-days"),
+    holidays: document.getElementById("f-holidays"),
+    vacation: document.getElementById("f-vacation"),
+    sick: document.getElementById("f-sick"),
+    focus: document.getElementById("f-focus"),
+    sprintDays: document.getElementById("f-sprint-days"),
+    overhead: document.getElementById("f-overhead"),
+  };
+
+  let lastResult = null;
+
+  // --- Load examples ---
+  fetch("/api/examples").then(r => r.json()).then(examples => {
+    examples.forEach(ex => {
+      const opt = document.createElement("option");
+      opt.value = JSON.stringify(ex.data, null, 2);
+      opt.textContent = ex.name.replace(/_/g, " ");
+      exampleSelect.appendChild(opt);
+    });
+  });
+
+  exampleSelect.addEventListener("change", function() {
+    if (this.value) {
+      jsonInput.value = this.value;
+      syncFormFromJson();
+    }
+    this.selectedIndex = 0;
+  });
+
+  // --- File upload / drag-drop ---
+  fileUpload.addEventListener("change", function() {
+    if (this.files[0]) readFile(this.files[0]);
+  });
+
+  dropZone.addEventListener("dragover", function(e) {
+    e.preventDefault();
+    this.classList.add("dragover");
+  });
+  dropZone.addEventListener("dragleave", function() {
+    this.classList.remove("dragover");
+  });
+  dropZone.addEventListener("drop", function(e) {
+    e.preventDefault();
+    this.classList.remove("dragover");
+    if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+  });
+
+  function readFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      jsonInput.value = e.target.result;
+      syncFormFromJson();
+    };
+    reader.readAsText(file);
+  }
+
+  // --- Tab switching ---
+  document.querySelectorAll(".tab-bar").forEach(bar => {
+    bar.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", function() {
+        const tabId = this.dataset.tab;
+        const parent = this.closest(".panel-body") || this.closest(".panel");
+        bar.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+        this.classList.add("active");
+        parent.querySelectorAll(".tab-content").forEach(tc => tc.classList.remove("active"));
+        document.getElementById(tabId).classList.add("active");
+      });
+    });
+  });
+
+  // --- Form <-> JSON sync ---
+  function syncFormFromJson() {
+    try {
+      const data = JSON.parse(jsonInput.value);
+      if (data.planning_horizon) formFields.horizon.value = data.planning_horizon;
+      if (data.working_days != null) formFields.workingDays.value = data.working_days;
+      if (data.holidays_days != null) formFields.holidays.value = data.holidays_days;
+      if (data.vacation_days != null) formFields.vacation.value = data.vacation_days;
+      if (data.sick_days != null) formFields.sick.value = data.sick_days;
+      if (data.focus_factor != null) formFields.focus.value = data.focus_factor;
+      if (data.sprint_days != null) formFields.sprintDays.value = data.sprint_days;
+      if (data.overhead_days_per_sprint != null) formFields.overhead.value = data.overhead_days_per_sprint;
+    } catch(e) { /* ignore parse errors during typing */ }
+  }
+
+  function numOrSkip(val) {
+    const n = parseFloat(val);
+    return isNaN(n) ? undefined : n;
+  }
+
+  function syncJsonFromForm() {
+    try {
+      const data = JSON.parse(jsonInput.value);
+      data.planning_horizon = formFields.horizon.value;
+      const fields = [
+        ["working_days", formFields.workingDays],
+        ["holidays_days", formFields.holidays],
+        ["vacation_days", formFields.vacation],
+        ["sick_days", formFields.sick],
+        ["focus_factor", formFields.focus],
+        ["sprint_days", formFields.sprintDays],
+        ["overhead_days_per_sprint", formFields.overhead],
+      ];
+      fields.forEach(function(pair) {
+        const v = numOrSkip(pair[1].value);
+        if (v !== undefined) data[pair[0]] = v;
+      });
+      jsonInput.value = JSON.stringify(data, null, 2);
+    } catch(e) { /* ignore if JSON is invalid */ }
+  }
+
+  Object.values(formFields).forEach(field => {
+    field.addEventListener("change", syncJsonFromForm);
+    field.addEventListener("input", syncJsonFromForm);
+  });
+
+  // --- Run planner ---
+  runBtn.addEventListener("click", runPlanner);
+
+  async function runPlanner() {
+    hideError();
+    let inputData;
+    try {
+      inputData = JSON.parse(jsonInput.value);
+    } catch(e) {
+      showError("Invalid JSON: " + e.message);
+      return;
+    }
+
+    runBtn.disabled = true;
+    runBtn.innerHTML = '<span class="spinner"></span>Running...';
+
+    try {
+      const resp = await fetch("/api/plan", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(inputData),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        showError(data.error || "Server error");
+        return;
+      }
+      lastResult = data;
+      inputJsonSnapshot.textContent = JSON.stringify(inputData, null, 2);
+      outputJson.textContent = JSON.stringify(data, null, 2);
+      renderResults(data);
+      resultsArea.classList.add("visible");
+      document.getElementById("summary-panel").scrollIntoView({behavior: "smooth", block: "start"});
+    } catch(e) {
+      showError("Network error: " + e.message);
+    } finally {
+      runBtn.disabled = false;
+      runBtn.textContent = "Run Planner";
+    }
+  }
+
+  function showError(msg) {
+    inputError.textContent = msg;
+    inputError.classList.add("visible");
+  }
+  function hideError() {
+    inputError.classList.remove("visible");
+  }
+
+  // --- Render results ---
+  function renderResults(data) {
+    renderSummary(data);
+    renderScope(data);
+    renderGoals(data);
+    renderRisks(data);
+    renderSuggestions(data);
+    renderTradeoffs(data);
+  }
+
+  function renderSummary(data) {
+    const banner = document.getElementById("feasibility-banner");
+    if (data.feasibility) {
+      banner.className = "feasibility-banner feasible";
+      banner.textContent = "Plan is feasible";
+    } else {
+      banner.className = "feasibility-banner infeasible";
+      banner.textContent = "Plan is infeasible — demand exceeds capacity";
+    }
+
+    const utilClass = data.utilization > 0.9 ? "infeasible" : data.utilization > 0.8 ? "warning" : "feasible";
+    const grid = document.getElementById("summary-grid");
+    grid.innerHTML = "";
+    const metrics = [
+      {label: "Capacity", value: data.capacity_dev_days + " days", cls: ""},
+      {label: "Demand", value: data.demand_dev_days + " days", cls: data.feasibility ? "" : "infeasible"},
+      {label: "Utilization", value: Math.round(data.utilization * 100) + "%", cls: utilClass},
+      {label: "Buffer", value: data.buffer_dev_days + " days", cls: data.buffer_dev_days < 0 ? "infeasible" : ""},
+      {label: "Delivered", value: data.delivered_features.length + " features", cls: "feasible"},
+      {label: "Deferred", value: data.deferred_features.length, cls: data.deferred_features.length > 0 ? "warning" : ""},
+      {label: "Dropped", value: data.dropped_features.length, cls: data.dropped_features.length > 0 ? "infeasible" : ""},
+    ];
+    metrics.forEach(m => {
+      const card = document.createElement("div");
+      card.className = "metric-card";
+      card.innerHTML =
+        '<div class="metric-label">' + esc(m.label) + '</div>' +
+        '<div class="metric-value ' + m.cls + '">' + esc(String(m.value)) + '</div>';
+      grid.appendChild(card);
+    });
+  }
+
+  function renderScope(data) {
+    const body = document.getElementById("scope-body");
+    body.innerHTML = "";
+
+    const sections = [
+      {title: "Delivered", features: data.delivered_features, empty: "No features delivered"},
+      {title: "Deferred", features: data.deferred_features, empty: "Nothing deferred"},
+      {title: "Dropped", features: data.dropped_features, empty: "Nothing dropped"},
+    ];
+
+    sections.forEach(sec => {
+      const div = document.createElement("div");
+      div.className = "scope-section";
+      div.innerHTML = '<div class="scope-section-title">' + esc(sec.title) +
+        ' (' + sec.features.length + ')</div>';
+      if (sec.features.length === 0) {
+        div.innerHTML += '<div class="scope-empty">' + esc(sec.empty) + '</div>';
+      } else {
+        const list = document.createElement("ul");
+        list.className = "feature-list";
+        sec.features.forEach(f => {
+          const li = document.createElement("li");
+          li.className = "feature-item";
+          li.innerHTML =
+            '<span class="feature-name">' + esc(f.name) + '</span>' +
+            '<span class="feature-meta">' +
+              '<span class="badge badge-size">' + esc(f.size) + '</span>' +
+              '<span class="badge badge-' + esc(f.priority.toLowerCase()) + '">' + esc(f.priority) + '</span>' +
+              '<span style="font-size:12px;color:var(--text-secondary)">' + esc(String(f.demand_dev_days)) + 'd</span>' +
+            '</span>';
+          list.appendChild(li);
+        });
+        div.appendChild(list);
+      }
+      body.appendChild(div);
+    });
+
+    // Selected plan details
+    if (data.selected_plan) {
+      const details = document.createElement("details");
+      details.innerHTML = '<summary>Selected Plan Details</summary>';
+      const pre = document.createElement("pre");
+      pre.className = "json-output";
+      pre.style.marginTop = "8px";
+      pre.style.minHeight = "auto";
+      pre.style.maxHeight = "300px";
+      pre.textContent = JSON.stringify(data.selected_plan, null, 2);
+      details.appendChild(pre);
+      body.appendChild(details);
+    }
+  }
+
+  function renderGoals(data) {
+    const body = document.getElementById("goal-body");
+    body.innerHTML = "";
+
+    const bga = data.business_goal_assessment;
+    if (!bga) {
+      body.innerHTML = '<div class="scope-empty">No business goals defined</div>';
+      return;
+    }
+
+    // Status banner
+    const status = document.createElement("div");
+    if (bga.goal_compliant) {
+      status.className = "goal-status compliant";
+      status.innerHTML = "<strong>Goal Compliant</strong> — All hard and soft constraints satisfied";
+    } else if (bga.acceptable) {
+      status.className = "goal-status acceptable";
+      status.innerHTML = "<strong>Acceptable</strong> — Hard constraints met, but soft goal tradeoffs exist";
+    } else {
+      status.className = "goal-status violated";
+      status.innerHTML = "<strong>Constraints Violated</strong> — Hard business constraints not satisfied";
+    }
+    body.appendChild(status);
+
+    // Violations
+    if (bga.hard_constraint_violations.length > 0) {
+      const h = document.createElement("div");
+      h.style.marginBottom = "8px";
+      h.innerHTML = '<div class="scope-section-title" style="color:var(--red)">Hard Constraint Violations</div>';
+      const ul = document.createElement("ul");
+      ul.className = "violation-list";
+      bga.hard_constraint_violations.forEach(v => {
+        const li = document.createElement("li");
+        li.textContent = v;
+        ul.appendChild(li);
+      });
+      h.appendChild(ul);
+      body.appendChild(h);
+    }
+    if (bga.soft_goal_violations.length > 0) {
+      const s = document.createElement("div");
+      s.style.marginBottom = "8px";
+      s.innerHTML = '<div class="scope-section-title" style="color:var(--amber)">Soft Goal Violations</div>';
+      const ul = document.createElement("ul");
+      ul.className = "violation-list";
+      bga.soft_goal_violations.forEach(v => {
+        const li = document.createElement("li");
+        li.textContent = v;
+        ul.appendChild(li);
+      });
+      s.appendChild(ul);
+      body.appendChild(s);
+    }
+
+    // Goal params
+    const grid = document.createElement("div");
+    grid.className = "info-grid";
+    const items = [
+      {label: "Max Utilization", value: (bga.max_utilization * 100) + "%", ok: bga.utilization_within_goal},
+      {label: "Min Buffer Ratio", value: (bga.min_buffer_ratio * 100) + "%", ok: bga.buffer_within_goal},
+      {label: "Must Deliver", value: bga.must_deliver_feature_ids.join(", ") || "None"},
+      {label: "Missing Must-Deliver", value: bga.missing_must_deliver_feature_ids.join(", ") || "None"},
+    ];
+    items.forEach(item => {
+      const d = document.createElement("div");
+      d.className = "info-item";
+      const okIndicator = item.ok !== undefined ? (item.ok ? " ✓" : " ✗") : "";
+      d.innerHTML = '<label>' + esc(item.label) + '</label><span>' + esc(item.value) + okIndicator + '</span>';
+      grid.appendChild(d);
+    });
+    body.appendChild(grid);
+
+    // Agentic iterations
+    if (data.agentic_iterations && data.agentic_iterations.length > 0) {
+      const details = document.createElement("details");
+      details.style.marginTop = "14px";
+      details.innerHTML = '<summary>Agentic Iterations (' + data.agentic_iterations.length + ')</summary>';
+      const container = document.createElement("div");
+      container.style.marginTop = "8px";
+      data.agentic_iterations.forEach(iter => {
+        const d = document.createElement("div");
+        d.className = "iteration-item";
+        d.innerHTML = '<div class="iteration-header">Iteration ' + iter.iteration + ' — ' + esc(iter.status) + '</div>';
+        if (iter.reason) d.innerHTML += '<div>' + esc(iter.reason) + '</div>';
+        if (iter.selected_removed_feature) {
+          d.innerHTML += '<div>Removed: <strong>' + esc(iter.selected_removed_feature.name) + '</strong> (' +
+            esc(iter.selected_removed_feature.size) + ', ' + esc(iter.selected_removed_feature.priority) + ')</div>';
+        }
+        container.appendChild(d);
+      });
+      details.appendChild(container);
+      body.appendChild(details);
+    }
+
+    // Evaluated alternatives
+    if (data.evaluated_alternatives && data.evaluated_alternatives.length > 0) {
+      const details = document.createElement("details");
+      details.style.marginTop = "10px";
+      details.innerHTML = '<summary>Evaluated Alternatives (' + data.evaluated_alternatives.length + ')</summary>';
+      const pre = document.createElement("pre");
+      pre.className = "json-output";
+      pre.style.marginTop = "8px";
+      pre.style.minHeight = "auto";
+      pre.style.maxHeight = "300px";
+      pre.textContent = JSON.stringify(data.evaluated_alternatives, null, 2);
+      details.appendChild(pre);
+      body.appendChild(details);
+    }
+  }
+
+  function renderRisks(data) {
+    const c = document.getElementById("risks-container");
+    c.innerHTML = "";
+    if (!data.risks || data.risks.length === 0) {
+      c.innerHTML = '<div class="scope-empty">No risks identified</div>';
+      return;
+    }
+    const ul = document.createElement("ul");
+    ul.className = "text-list risks";
+    data.risks.forEach(r => {
+      const li = document.createElement("li");
+      li.textContent = r;
+      ul.appendChild(li);
+    });
+    c.appendChild(ul);
+  }
+
+  function renderSuggestions(data) {
+    const c = document.getElementById("suggestions-container");
+    c.innerHTML = "";
+    if (!data.suggestions || data.suggestions.length === 0) {
+      c.innerHTML = '<div class="scope-empty">No suggestions</div>';
+      return;
+    }
+    const ul = document.createElement("ul");
+    ul.className = "text-list suggestions";
+    data.suggestions.forEach(s => {
+      const li = document.createElement("li");
+      li.textContent = s;
+      ul.appendChild(li);
+    });
+    c.appendChild(ul);
+  }
+
+  function renderTradeoffs(data) {
+    const c = document.getElementById("tradeoff-container");
+    c.innerHTML = "";
+    if (!data.tradeoff_summary || data.tradeoff_summary.length === 0) return;
+    c.innerHTML = '<div class="scope-section-title">Tradeoff Summary</div>';
+    const ul = document.createElement("ul");
+    ul.className = "text-list tradeoffs";
+    data.tradeoff_summary.forEach(t => {
+      const li = document.createElement("li");
+      li.textContent = t;
+      ul.appendChild(li);
+    });
+    c.appendChild(ul);
+  }
+
+  // --- Copy / Download ---
+  copyBtn.addEventListener("click", function() {
+    navigator.clipboard.writeText(outputJson.textContent).then(() => {
+      this.textContent = "Copied!";
+      setTimeout(() => { this.textContent = "Copy"; }, 1500);
+    });
+  });
+
+  downloadBtn.addEventListener("click", function() {
+    const blob = new Blob([outputJson.textContent], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "capacity_plan_output.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // --- Escape HTML ---
+  function esc(str) {
+    const d = document.createElement("div");
+    d.textContent = str;
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>
