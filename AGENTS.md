@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluates whether a roadmap fits within available engineering capacity for a planning horizon and recommends a simpler alternative when it does not.
+This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluates whether a roadmap fits within available engineering capacity for a planning horizon and uses a bounded agentic replanning loop to recommend a better alternative when it does not.
 
 ## Architecture
 
@@ -11,7 +11,7 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
 - `src/capacity_planning_tool/config.py`
   Loads runtime defaults from `config/defaults.json`.
 - `src/capacity_planning_tool/planner.py`
-  Contains deterministic planning calculations and improvement logic.
+  Contains deterministic planning calculations, business-goal evaluation, and the bounded agentic replanning loop.
 - `src/capacity_planning_tool/cli.py`
   Reads input JSON, runs the planner, and writes output JSON.
 - `tests/`
@@ -33,6 +33,7 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
 - Keep runtime defaults and domain numeric constants in `config/defaults.json`.
 - Keep formulas, assumptions, and product reasoning in Markdown docs rather than inline comments.
 - Prefer pure functions for calculations.
+- Keep business-goal evaluation deterministic even when agentic behavior is added.
 - Use dataclasses and explicit type hints.
 - Validate input early and fail with actionable error messages.
 - Preserve feature order in delivered output unless recommendation logic removes items.
@@ -83,10 +84,9 @@ Do not push as complete if:
 - Keep forward-looking design work in dedicated docs such as `docs/agentic_replanning_plan.md`.
 - Update or add JSON examples when input or output shapes change.
 - Add or update tests with every feature or bug fix.
-- Review the recommendation ordering rules after planner changes:
-  - lowest priority first
-  - largest feature first within the same priority
-- Keep V1 intentionally simple:
+- Review the business-goal and replanning rules after planner changes.
+- Keep runtime defaults and iteration limits in JSON config.
+- Keep the product intentionally simple:
   - no UI
   - no database
   - no external integrations

@@ -18,6 +18,8 @@
   "utilization_target_min": 0.8,
   "utilization_target_max": 0.9,
   "buffer_target_ratio": 0.1,
-  "improvement_passes": 1,
+  "defer_preference_default": ["Low", "Medium", "High", "Critical"],
+  "agentic_max_iterations": 3,
+  "agentic_candidate_limit": 3,
   "output_precision": 2
 }

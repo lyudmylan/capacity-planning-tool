@@ -99,29 +99,36 @@ Given team capacity, planning horizon, and roadmap demand, determine whether the
 - provide a CLI entry point
 - keep V1 simple: no UI, no DB, no integrations, no scheduling by week or sprint allocation
 
-## Current Interpretation Status
+## Current Implementation Status
 
-The shipped `V1.0` satisfies the deterministic planning and repository-engineering parts of this spec:
+The current implementation satisfies most of the deterministic planning and repository-engineering parts of this spec:
 
 - JSON input and output
 - config-driven defaults
 - Markdown formulas and assumptions
 - CLI entry point
 - tests, linting, type checking, CI, and review flow
-- deterministic improvement pass using the requested ordering rules
+- bounded agentic replanning loop with deterministic candidate scoring
+- explicit business-goal input support
 
-## Known Gap Against the Original Request
+## What Is Now Implemented
 
-The shipped `V1.0` does not yet implement a runtime agentic or LLM-backed loop.
+The current version now includes:
 
-Specifically, the original `LLM Usage` section suggests a product design where:
+- a bounded propose -> evaluate -> revise replanning loop
+- must-deliver feature protection
+- business-goal-aware candidate evaluation
+- deterministic rescoring of every proposed alternative
+- JSON output that includes selected-plan details and evaluated alternatives
 
-1. calculations stay deterministic
-2. an LLM or agent layer interprets those deterministic results
-3. that layer explains risks, recommends deferrals or drops, and summarizes tradeoffs
+## Remaining Gap Against the Original Request
 
-`V1.0` currently generates those fields deterministically inside the planner. That made the first release simple and testable, but it under-serves the intended agentic behavior.
+The remaining gap is narrower now:
+
+- the replanning loop is agentic in structure
+- but it is still rule-based rather than LLM-backed
+- `risks`, `suggestions`, and `tradeoff_summary` are still deterministic planner outputs
 
 ## Next Step
 
-The planned correction is documented in [`agentic_replanning_plan.md`](agentic_replanning_plan.md). The next iteration should add a bounded agentic replanning layer on top of the deterministic evaluator instead of moving calculations into the LLM.
+The remaining optional extension is documented in [`agentic_replanning_plan.md`](agentic_replanning_plan.md). If we add an LLM later, it should sit on top of the deterministic evaluator rather than replacing the calculation layer.

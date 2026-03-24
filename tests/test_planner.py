@@ -26,6 +26,8 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(result["deferred_features"], [])
         self.assertEqual(result["dropped_features"], [])
         self.assertGreater(result["buffer_dev_days"], 0)
+        self.assertTrue(result["selected_plan"]["goal_compliant"])
+        self.assertEqual(result["business_goal_assessment"]["missing_must_deliver_feature_ids"], [])
 
     def test_infeasible_plan_recommends_lowest_priority_largest_first(self) -> None:
         result = plan_capacity(_load_input("infeasible_plan.json"), load_defaults())
@@ -43,6 +45,9 @@ class PlannerTests(unittest.TestCase):
             [feature["name"] for feature in result["delivered_features"]],
             ["New Billing Engine", "Reporting API"],
         )
+        self.assertTrue(result["selected_plan"]["goal_compliant"])
+        self.assertEqual(len(result["agentic_iterations"]), 2)
+        self.assertGreaterEqual(len(result["evaluated_alternatives"]), 2)
 
     def test_defaults_are_applied_when_optional_fields_are_missing(self) -> None:
         planning_input = PlanningInput.from_dict(
@@ -82,6 +87,7 @@ class PlannerTests(unittest.TestCase):
         result = plan_capacity(planning_input, load_defaults())
         self.assertEqual(result["capacity_dev_days"], 8.0)
         self.assertEqual(result["demand_dev_days"], 8.0)
+        self.assertEqual(result["business_goal_assessment"]["must_deliver_feature_ids"], [])
 
     def test_invalid_unavailable_days_raise_validation_error(self) -> None:
         with self.assertRaises(ValueError):
@@ -107,6 +113,64 @@ class PlannerTests(unittest.TestCase):
                         ]
                     },
                     "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_business_goals_protect_must_deliver_features(self) -> None:
+        result = plan_capacity(_load_input("goal_driven_plan.json"), load_defaults())
+
+        self.assertTrue(
+            {"feature-1", "feature-5", "feature-7", "feature-8"}.issubset(
+                {
+                    feature["id"]
+                    for feature in result["delivered_features"]
+                    if "id" in feature
+                }
+            )
+        )
+        self.assertEqual(
+            [feature["id"] for feature in result["dropped_features"]],
+            ["feature-9"],
+        )
+        self.assertTrue(result["selected_plan"]["acceptable"])
+
+    def test_unknown_must_deliver_feature_raises_validation_error(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_horizon": "month",
+                    "working_days": 20,
+                    "holidays_days": 1,
+                    "vacation_days": 1,
+                    "sick_days": 1,
+                    "team_structure": {
+                        "teams": [
+                            {
+                                "name": "API",
+                                "roles": [
+                                    {
+                                        "role": "Backend Engineer",
+                                        "seniority": "Senior",
+                                        "count": 2
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {
+                        "features": [
+                            {
+                                "id": "real-feature",
+                                "name": "Real Feature",
+                                "size": "S",
+                                "priority": "High"
+                            }
+                        ]
+                    },
+                    "business_goals": {
+                        "must_deliver_feature_ids": ["missing-feature"]
+                    }
                 },
                 load_defaults(),
             )

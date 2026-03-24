@@ -31,25 +31,36 @@
   "roadmap": {
     "features": [
       {
+        "id": "billing-engine",
         "name": "New Billing Engine",
         "size": "L",
         "priority": "Critical"
       },
       {
+        "id": "reporting-api",
         "name": "Reporting API",
         "size": "M",
         "priority": "High"
       },
       {
+        "id": "theme-refresh",
         "name": "Theme Refresh",
         "size": "L",
         "priority": "Low"
       },
       {
+        "id": "audit-trail",
         "name": "Audit Trail",
         "size": "S",
         "priority": "Medium"
       }
     ]
+  },
+  "business_goals": {
+    "must_deliver_feature_ids": ["billing-engine"],
+    "preserve_priorities": ["Critical", "High"],
+    "max_utilization": 0.9,
+    "min_buffer_ratio": 0.1,
+    "defer_preference": ["Low", "Medium", "High", "Critical"]
   }
 }

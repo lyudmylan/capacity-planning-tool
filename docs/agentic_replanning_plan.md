@@ -1,10 +1,12 @@
 # Agentic Replanning Plan
 
-## Why This Exists
+## Status
 
-The original spec asked for LLM usage to explain risks, suggest which features to defer or drop, and summarize tradeoffs while keeping calculations non-LLM. The shipped `V1.0` kept everything deterministic, which was safe for the first release but is not the best example of agentic use.
+This document started as the design for the next iteration. The bounded replanning loop described here is now implemented. The remaining future work is optional LLM-backed candidate generation or narrative support.
 
-The next iteration should add a bounded runtime loop where an agent proposes alternatives and the deterministic planner evaluates them.
+## Why This Still Exists
+
+The original spec asked for LLM usage to explain risks, suggest which features to defer or drop, and summarize tradeoffs while keeping calculations non-LLM. The current version now has the bounded runtime loop, but it still uses rule-based candidate generation and deterministic narrative output.
 
 ## Product Goal
 
@@ -26,7 +28,7 @@ the tool should recommend the best acceptable plan, not just the first feasible 
 - Prefer deferring internal work before customer-facing work
 - Keep at least one growth feature in scope
 
-## Proposed Input Extension
+## Implemented Input Extension
 
 Add an optional JSON section like:
 
@@ -42,9 +44,9 @@ Add an optional JSON section like:
 }
 ```
 
-The exact shape can evolve, but the key rule is that business goals remain explicit and machine-readable.
+This shape is now implemented in spirit, with explicit machine-readable business goals.
 
-## Proposed Architecture
+## Implemented Architecture
 
 ### Deterministic Layer
 
@@ -63,33 +65,33 @@ Responsible for:
 - reading deterministic planner output
 - proposing one or more scope alternatives
 - deciding which features to defer or drop to satisfy business goals
-- explaining risks and tradeoffs in natural language
+- selecting better candidates across bounded iterations
 
 ### Guardrail
 
 Every agent-proposed alternative must be re-evaluated by the deterministic layer before it can be returned.
 
-## Proposed Agentic Loop
+## Implemented Agentic Loop
 
 Use a bounded loop:
 
 1. Compute the baseline plan deterministically.
 2. If the baseline plan is acceptable, keep it.
-3. Otherwise, ask the agent for candidate alternatives that respect the business goals.
+3. Otherwise, generate candidate alternatives that respect the business goals.
 4. Re-score each candidate deterministically.
 5. Keep the best acceptable candidate.
 6. Stop after a small fixed number of rounds or once no better candidate is found.
 
-This is the intended agentic pattern:
+This is the implemented agentic pattern:
 
 - propose
 - evaluate
 - revise
 - stop
 
-## Output Direction
+## Current Output Direction
 
-The tool should continue to emit JSON only. A future output may add fields such as:
+The tool continues to emit JSON only and now includes fields such as:
 
 - `selected_plan_reason`
 - `evaluated_alternatives`
@@ -105,14 +107,10 @@ The next iteration should still avoid:
 - a UI or database layer
 - open-ended autonomous behavior without bounded retries
 
-## Delivery Plan
+## Remaining Future Work
 
-1. Add explicit business-goal input schema.
-2. Split deterministic evaluation from narrative generation more cleanly.
-3. Introduce a bounded replanning loop with deterministic scoring of candidates.
-4. Keep all final machine-readable outputs in JSON.
-5. Add tests covering:
-   - business goal preservation
-   - bounded iteration behavior
-   - deterministic re-scoring of agent proposals
-   - fallback behavior when no acceptable candidate is found
+1. Add an optional external LLM adapter without moving calculations into the model.
+2. Let that adapter propose richer alternatives than single-feature removals.
+3. Optionally let the adapter write `risks`, `suggestions`, and `tradeoff_summary`.
+4. Keep deterministic rescoring as the final authority.
+5. Add tests covering fallback behavior when the LLM is unavailable.

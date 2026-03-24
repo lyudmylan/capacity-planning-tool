@@ -28,6 +28,8 @@ class CliTests(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertIn("capacity_dev_days", result)
         self.assertEqual(result["deferred_features"], [])
+        self.assertIn("selected_plan", result)
+        self.assertIn("business_goal_assessment", result)
 
     def test_cli_can_write_output_file(self) -> None:
         input_path = PROJECT_ROOT / "examples" / "infeasible_plan.json"
@@ -54,6 +56,7 @@ class CliTests(unittest.TestCase):
 
             result = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertIn("tradeoff_summary", result)
+            self.assertIn("agentic_iterations", result)
             self.assertEqual(
                 [feature["name"] for feature in result["dropped_features"]],
                 ["Theme Refresh"],

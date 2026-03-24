@@ -1,0 +1,61 @@
+{
+  "planning_horizon": "quarter",
+  "working_days": 60,
+  "holidays_days": 2,
+  "vacation_days": 5,
+  "sick_days": 1,
+  "team_structure": {
+    "teams": [
+      {
+        "name": "Product Engineering",
+        "roles": [
+          {
+            "role": "Full Stack Engineer",
+            "seniority": "Senior",
+            "count": 2
+          }
+        ]
+      }
+    ]
+  },
+  "roadmap": {
+    "features": [
+      {
+        "id": "feature-1",
+        "name": "Core Migration",
+        "size": "L",
+        "priority": "Critical"
+      },
+      {
+        "id": "feature-5",
+        "name": "Enterprise Audit Trail",
+        "size": "M",
+        "priority": "High"
+      },
+      {
+        "id": "feature-7",
+        "name": "API Contract Cleanup",
+        "size": "S",
+        "priority": "Medium"
+      },
+      {
+        "id": "feature-8",
+        "name": "Usage Analytics",
+        "size": "M",
+        "priority": "High"
+      },
+      {
+        "id": "feature-9",
+        "name": "Internal Theme Refresh",
+        "size": "L",
+        "priority": "Low"
+      }
+    ]
+  },
+  "business_goals": {
+    "must_deliver_feature_ids": ["feature-1", "feature-5", "feature-7", "feature-8"],
+    "preserve_priorities": ["Critical", "High"],
+    "max_utilization": 0.9,
+    "min_buffer_ratio": 0.1
+  }
+}

@@ -64,7 +64,9 @@ class DefaultsConfig:
     utilization_target_min: float
     utilization_target_max: float
     buffer_target_ratio: float
-    improvement_passes: int
+    defer_preference_default: tuple[str, ...]
+    agentic_max_iterations: int
+    agentic_candidate_limit: int
     output_precision: int
 
     @classmethod
@@ -79,7 +81,9 @@ class DefaultsConfig:
             "utilization_target_min",
             "utilization_target_max",
             "buffer_target_ratio",
-            "improvement_passes",
+            "defer_preference_default",
+            "agentic_max_iterations",
+            "agentic_candidate_limit",
             "output_precision",
         }
         missing_keys = sorted(required_keys - set(data))
@@ -92,6 +96,28 @@ class DefaultsConfig:
             data["feature_size_multipliers"], "feature_size_multipliers"
         )
         priority_rank = _require_mapping(data["priority_rank"], "priority_rank")
+        defer_preference = tuple(
+            _require_string(priority_name, "defer_preference_default item")
+            for priority_name in _require_list(
+                data["defer_preference_default"], "defer_preference_default"
+            )
+        )
+        if set(defer_preference) != SUPPORTED_PRIORITIES:
+            raise InputValidationError(
+                "defer_preference_default must define Critical, High, Medium, and Low."
+            )
+        agentic_max_iterations = int(
+            _require_non_negative_number(
+                data["agentic_max_iterations"], "agentic_max_iterations"
+            )
+        )
+        agentic_candidate_limit = int(
+            _require_non_negative_number(
+                data["agentic_candidate_limit"], "agentic_candidate_limit"
+            )
+        )
+        if agentic_candidate_limit < 1:
+            raise InputValidationError("agentic_candidate_limit must be at least 1.")
 
         parsed_size_multipliers = {
             _require_string(size_name, "feature_size_multipliers key"): (
@@ -137,9 +163,9 @@ class DefaultsConfig:
             buffer_target_ratio=_require_fraction(
                 data["buffer_target_ratio"], "buffer_target_ratio"
             ),
-            improvement_passes=int(
-                _require_non_negative_number(data["improvement_passes"], "improvement_passes")
-            ),
+            defer_preference_default=defer_preference,
+            agentic_max_iterations=agentic_max_iterations,
+            agentic_candidate_limit=agentic_candidate_limit,
             output_precision=int(
                 _require_non_negative_number(data["output_precision"], "output_precision")
             ),
@@ -247,6 +273,7 @@ class Team:
 
 @dataclass(frozen=True, slots=True)
 class Feature:
+    id: str | None
     name: str
     size: str
     priority: str
@@ -264,9 +291,73 @@ class Feature:
                 f"feature.priority must be one of {sorted(SUPPORTED_PRIORITIES)}."
             )
         return cls(
+            id=(
+                None
+                if data.get("id") is None
+                else _require_string(data.get("id"), "feature.id")
+            ),
             name=_require_string(data.get("name"), "feature.name"),
             size=size,
             priority=priority,
+        )
+
+    @property
+    def reference(self) -> str:
+        return self.id if self.id is not None else self.name
+
+
+@dataclass(frozen=True, slots=True)
+class BusinessGoals:
+    must_deliver_feature_ids: tuple[str, ...]
+    preserve_priorities: tuple[str, ...]
+    max_utilization: float
+    min_buffer_ratio: float
+    defer_preference: tuple[str, ...]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any], defaults: DefaultsConfig) -> BusinessGoals:
+        must_deliver_feature_ids = tuple(
+            _require_string(feature_id, "business_goals.must_deliver_feature_ids item")
+            for feature_id in _require_list(
+                data.get("must_deliver_feature_ids", []),
+                "business_goals.must_deliver_feature_ids",
+            )
+        )
+        preserve_priorities = tuple(
+            _require_string(priority, "business_goals.preserve_priorities item")
+            for priority in _require_list(
+                data.get("preserve_priorities", []),
+                "business_goals.preserve_priorities",
+            )
+        )
+        defer_preference = tuple(
+            _require_string(priority, "business_goals.defer_preference item")
+            for priority in _require_list(
+                data.get("defer_preference", list(defaults.defer_preference_default)),
+                "business_goals.defer_preference",
+            )
+        )
+        for priority in preserve_priorities + defer_preference:
+            if priority not in SUPPORTED_PRIORITIES:
+                raise InputValidationError(
+                    f"business goal priority values must be one of {sorted(SUPPORTED_PRIORITIES)}."
+                )
+        if set(defer_preference) != SUPPORTED_PRIORITIES:
+            raise InputValidationError(
+                "business_goals.defer_preference must contain each priority exactly once."
+            )
+        return cls(
+            must_deliver_feature_ids=must_deliver_feature_ids,
+            preserve_priorities=preserve_priorities,
+            max_utilization=_require_fraction(
+                data.get("max_utilization", defaults.utilization_target_max),
+                "business_goals.max_utilization",
+            ),
+            min_buffer_ratio=_require_fraction(
+                data.get("min_buffer_ratio", defaults.buffer_target_ratio),
+                "business_goals.min_buffer_ratio",
+            ),
+            defer_preference=defer_preference,
         )
 
 
@@ -282,6 +373,7 @@ class PlanningInput:
     overhead_days_per_sprint: float
     teams: tuple[Team, ...]
     features: tuple[Feature, ...]
+    business_goals: BusinessGoals
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], defaults: DefaultsConfig) -> PlanningInput:
@@ -314,6 +406,11 @@ class PlanningInput:
             Feature.from_dict(_require_mapping(feature, "feature"))
             for feature in _require_list(roadmap.get("features"), "roadmap.features")
         )
+        feature_references = [feature.reference for feature in features]
+        if len(feature_references) != len(set(feature_references)):
+            raise InputValidationError(
+                "feature ids or names must be unique so business goals can reference them safely."
+            )
 
         working_days = _require_non_negative_number(data.get("working_days"), "working_days")
         holidays_days = _require_non_negative_number(data.get("holidays_days"), "holidays_days")
@@ -324,6 +421,19 @@ class PlanningInput:
         if unavailable_days > working_days:
             raise InputValidationError(
                 "holidays_days + vacation_days + sick_days must not exceed working_days."
+            )
+
+        business_goals = BusinessGoals.from_dict(
+            _require_mapping(data.get("business_goals", {}), "business_goals"),
+            defaults,
+        )
+        missing_must_deliver = sorted(
+            set(business_goals.must_deliver_feature_ids) - set(feature_references)
+        )
+        if missing_must_deliver:
+            raise InputValidationError(
+                "business_goals.must_deliver_feature_ids contains unknown features: "
+                + ", ".join(missing_must_deliver)
             )
 
         return cls(
@@ -337,6 +447,7 @@ class PlanningInput:
             overhead_days_per_sprint=overhead_days_per_sprint,
             teams=teams,
             features=features,
+            business_goals=business_goals,
         )
 
 
@@ -356,9 +467,12 @@ class FeatureDemand:
     original_index: int
 
     def to_dict(self, *, precision: int) -> dict[str, Any]:
-        return {
+        feature_dict: dict[str, Any] = {
             "name": self.feature.name,
             "size": self.feature.size,
             "priority": self.feature.priority,
             "demand_dev_days": round(self.demand_dev_days, precision),
         }
+        if self.feature.id is not None:
+            feature_dict["id"] = self.feature.id
+        return feature_dict

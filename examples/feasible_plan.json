@@ -30,20 +30,29 @@
   "roadmap": {
     "features": [
       {
+        "id": "auth-hardening",
         "name": "Authentication Hardening",
         "size": "M",
         "priority": "Critical"
       },
       {
+        "id": "dashboard-refresh",
         "name": "Dashboard Refresh",
         "size": "S",
         "priority": "High"
       },
       {
+        "id": "admin-export",
         "name": "Admin Export",
         "size": "XS",
         "priority": "Medium"
       }
     ]
+  },
+  "business_goals": {
+    "must_deliver_feature_ids": ["auth-hardening"],
+    "preserve_priorities": ["Critical"],
+    "max_utilization": 0.9,
+    "min_buffer_ratio": 0.1
   }
 }
