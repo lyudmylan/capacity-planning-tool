@@ -18,6 +18,12 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
   Covers planning calculations, defaults, prioritization, and CLI behavior.
 - `docs/assumptions.md`
   Documents formulas, assumptions, and recommendation rules.
+- `docs/product_spec.md`
+  Preserves the original requested product spec and notes the current V1 gap.
+- `docs/agentic_replanning_plan.md`
+  Defines the planned bounded agentic replanning architecture for the next iteration.
+- `docs/shipping_workflow.md`
+  Defines the GitHub shipping standard for routine changes.
 - `examples/`
   Provides sample JSON inputs for quick validation.
 
@@ -72,6 +78,9 @@ Do not push as complete if:
 
 ## Product Rules
 
+- Keep the original product brief updated in `docs/product_spec.md`.
+- If current behavior differs from the original brief, document that gap explicitly rather than hiding it.
+- Keep forward-looking design work in dedicated docs such as `docs/agentic_replanning_plan.md`.
 - Update or add JSON examples when input or output shapes change.
 - Add or update tests with every feature or bug fix.
 - Review the recommendation ordering rules after planner changes:

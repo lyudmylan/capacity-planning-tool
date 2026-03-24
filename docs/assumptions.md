@@ -1,5 +1,14 @@
 # Assumptions and Formulas
 
+## Current Version Status
+
+The shipped `V1.0` implementation is fully deterministic.
+
+- Capacity and demand calculations are deterministic.
+- Scope reduction is deterministic.
+- `risks`, `suggestions`, and `tradeoff_summary` are currently deterministic output fields.
+- A runtime agentic replanning loop is planned next but is not implemented yet.
+
 ## Scope
 
 V1 evaluates a single planning horizon at a time. It does not split work by week, by sprint assignment, or by engineer specialization.
@@ -50,9 +59,15 @@ Features are removed in this order:
 
 The recommendation aims to bring the plan down to the healthier limit implied by the configured utilization and buffer targets.
 
+In `V1.0`, this recommendation is produced by deterministic ranking logic, not by an LLM.
+
 ## Deferred vs Dropped
 
 - Removed `Low` priority items are classified as `dropped_features`.
 - Removed `Medium`, `High`, and `Critical` items are classified as `deferred_features`.
 
 This keeps the output deterministic while still distinguishing low-value scope cuts from work that should move to a later horizon.
+
+## Planned Agentic Direction
+
+The next planned iteration will keep the formulas in this document deterministic while adding a bounded agentic replanning layer on top of them. See [`agentic_replanning_plan.md`](agentic_replanning_plan.md).
