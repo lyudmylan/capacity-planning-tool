@@ -23,7 +23,7 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
 - `.codex/skills/github-shipping/SKILL.md`
   Shared repo shipping workflow skill that can be reused by collaborators.
 - `.codex/prompts/`
-  Shared prompt shortcuts for shipping and review.
+  Shared prompt shortcuts for shipping, review, and Claude UI delegation.
 - `docs/product.md`
   Living product overview, current scope, and next-step direction.
 - `docs/assumptions.md`
