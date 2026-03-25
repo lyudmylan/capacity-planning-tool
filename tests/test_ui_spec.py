@@ -14,6 +14,7 @@ class UiSpecTests(unittest.TestCase):
         self.assertEqual(spec["spec_id"], "capacity-planning-ui-handoff")
         self.assertEqual(spec["spec_version"], "1.0")
         self.assertEqual(spec["delivery_model"]["preferred_ui_builder"], "Claude Code")
+        self.assertEqual(spec["source_of_truth"]["product_doc"], "docs/product.md")
         self.assertIn("human_web_interface", spec["delivery_model"]["interaction_modes"])
         self.assertEqual(
             spec["product_constraints"]["planner_calculations"],

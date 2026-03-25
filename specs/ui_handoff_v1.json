@@ -4,7 +4,7 @@
   "status": "draft",
   "purpose": "Machine-readable handoff contract for a future UI that can be implemented by coding agents and used by human operators.",
   "source_of_truth": {
-    "product_spec_doc": "docs/product_spec.md",
+    "product_doc": "docs/product.md",
     "ui_explainer_doc": "docs/ui_json_spec.md",
     "planner_input_examples": [
       "examples/feasible_plan.json",

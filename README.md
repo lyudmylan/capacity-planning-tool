@@ -2,13 +2,7 @@
 
 Capacity Planning Tool is a JSON-in / JSON-out planning CLI. The current version evaluates whether a roadmap fits within engineering capacity, supports explicit business goals, and uses a bounded replanning loop to recommend a better plan when the original scope does not fit.
 
-## Current Shape
-
-- Deterministic capacity planning CLI with JSON input and output
-- Bounded replanning loop with explicit business goals
-- Thin web UI on top of the existing planner
-- JSON-first UI contract for future agent or human-facing interfaces
-- Optional future LLM work documented separately from the shipped planner
+The living product overview now lives in [`docs/product.md`](docs/product.md). Use that file as the source of truth for current scope, constraints, and next steps.
 
 ## Web UI
 
@@ -65,20 +59,18 @@ mypy src
 
 ## Documentation
 
-- [`docs/current_state.md`](docs/current_state.md)
-  Current shipped capabilities, known gaps, and next-step direction.
-- [`docs/product_spec.md`](docs/product_spec.md)
-  Historical original product brief that started the project.
+- [`docs/product.md`](docs/product.md)
+  Living product overview: goal, current shape, constraints, and next steps.
 - [`docs/assumptions.md`](docs/assumptions.md)
   Current formulas, assumptions, and behavior notes.
-- [`docs/agentic_replanning_plan.md`](docs/agentic_replanning_plan.md)
-  Future optional LLM-advisor direction, separate from the shipped deterministic planner.
 - [`docs/ui_json_spec.md`](docs/ui_json_spec.md)
   The human-readable guide for the future JSON-first UI contract.
-- [`docs/shipping_workflow.md`](docs/shipping_workflow.md)
-  Short pointer to the canonical shipping process in `AGENTS.md`.
+- [`.codex/skills/github-shipping/SKILL.md`](.codex/skills/github-shipping/SKILL.md)
+  Shared shipping workflow skill for collaborators using Codex-style tooling.
+- [`.codex/prompts/`](.codex/prompts)
+  Shared prompt shortcuts for shipping, review, and docs cleanup.
 - [`AGENTS.md`](AGENTS.md)
-  Repository instructions for coding agents.
+  Minimal repository instructions for agents working in this codebase.
 - [`specs/ui_handoff_v1.json`](specs/ui_handoff_v1.json)
   Machine-readable UI handoff spec for agent-built and human-facing interfaces.
 

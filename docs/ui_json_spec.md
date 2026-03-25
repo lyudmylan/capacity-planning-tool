@@ -13,7 +13,7 @@ That JSON spec serves two audiences:
 
 - `specs/ui_handoff_v1.json` is the machine-readable UI contract.
 - This Markdown document explains how to interpret and evolve it.
-- `docs/product_spec.md` remains the historical product brief and scope reference.
+- `docs/product.md` is the living product and scope reference.
 
 ## Core Principle
 
@@ -42,7 +42,7 @@ The planner already uses JSON for machine-readable input and output. A JSON-firs
 2. Update this Markdown doc if the interpretation rules change.
 3. Let the UI implementation follow the JSON contract.
 4. Keep planner calculations and output generation in backend or shared deterministic logic, not duplicated in frontend code.
-5. Review UI changes against both the JSON contract and the product spec.
+5. Review UI changes against both the JSON contract and the living product doc.
 
 ## Recommended UI Scope For The First Human Interface
 
