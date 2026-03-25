@@ -68,7 +68,7 @@ mypy src
 - [`.codex/skills/github-shipping/SKILL.md`](.codex/skills/github-shipping/SKILL.md)
   Shared shipping workflow skill for collaborators using Codex-style tooling.
 - [`.codex/prompts/`](.codex/prompts)
-  Shared prompt shortcuts for shipping, review, and docs cleanup.
+  Shared prompt shortcuts for shipping and review.
 - [`AGENTS.md`](AGENTS.md)
   Minimal repository instructions for agents working in this codebase.
 - [`specs/ui_handoff_v1.json`](specs/ui_handoff_v1.json)

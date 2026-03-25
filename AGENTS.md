@@ -23,7 +23,7 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
 - `.codex/skills/github-shipping/SKILL.md`
   Shared repo shipping workflow skill that can be reused by collaborators.
 - `.codex/prompts/`
-  Shared prompt shortcuts for shipping, review, and docs cleanup.
+  Shared prompt shortcuts for shipping and review.
 - `docs/product.md`
   Living product overview, current scope, and next-step direction.
 - `docs/assumptions.md`
@@ -59,13 +59,10 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
   - no weekly or sprint-level scheduling allocation
 - If a UI is added, keep it thin and driven by the JSON handoff spec instead of embedding planner logic in the frontend.
 
-## UI Handoff Rules
+## UI Handoff
 
-- Treat `specs/ui_handoff_v1.json` as the machine-readable source of truth for UI scope and behavior.
-- Treat `docs/ui_json_spec.md` as the human-readable explanation of that contract.
+- For UI work, follow `specs/ui_handoff_v1.json` and `docs/ui_json_spec.md`.
 - Keep the planner as the source of truth for calculations and output JSON.
-- UI work may be delegated to Claude Code when the handoff contract is explicit and versioned.
-- Keep UI logic from duplicating planner calculations in the frontend.
 
 ## Extension Notes
 
