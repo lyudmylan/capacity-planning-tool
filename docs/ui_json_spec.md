@@ -13,7 +13,7 @@ That JSON spec serves two audiences:
 
 - `specs/ui_handoff_v1.json` is the machine-readable UI contract.
 - This Markdown document explains how to interpret and evolve it.
-- `docs/product_spec.md` remains the product brief and planning scope reference.
+- `docs/product_spec.md` remains the historical product brief and scope reference.
 
 ## Core Principle
 

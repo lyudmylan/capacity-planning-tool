@@ -22,14 +22,16 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
   Covers planning calculations, defaults, prioritization, CLI behavior, and web API.
 - `docs/assumptions.md`
   Documents formulas, assumptions, and recommendation rules.
+- `docs/current_state.md`
+  Tracks the current shipped product shape, known gaps, and next-step direction.
 - `docs/product_spec.md`
-  Preserves the original requested product spec and notes the current V1 gap.
+  Preserves the original requested product brief as a historical reference.
 - `docs/agentic_replanning_plan.md`
-  Defines the planned bounded agentic replanning architecture for the next iteration.
+  Tracks the optional future LLM-advisor direction beyond the shipped planner.
 - `docs/ui_json_spec.md`
   Defines the JSON-first UI handoff model for future human and agent-facing interfaces.
 - `docs/shipping_workflow.md`
-  Defines the GitHub shipping standard for routine changes.
+  Short human-readable pointer to the canonical shipping workflow in this file.
 - `specs/ui_handoff_v1.json`
   Machine-readable UI source-of-truth for agent handoff and future web implementation.
 - `examples/`
@@ -101,7 +103,9 @@ Do not push as complete if:
 
 ## Product Rules
 
-- Keep the original product brief updated in `docs/product_spec.md`.
+- Preserve the original product brief in `docs/product_spec.md` as a historical reference.
+- Do not use `docs/product_spec.md` for current status tracking or roadmap notes.
+- Keep current shipped status and next-step notes in `docs/current_state.md`.
 - If current behavior differs from the original brief, document that gap explicitly rather than hiding it.
 - Keep forward-looking design work in dedicated docs such as `docs/agentic_replanning_plan.md`.
 - Update or add JSON examples when input or output shapes change.

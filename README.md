@@ -2,13 +2,13 @@
 
 Capacity Planning Tool is a JSON-in / JSON-out planning CLI. The current version evaluates whether a roadmap fits within engineering capacity, supports explicit business goals, and uses a bounded replanning loop to recommend a better plan when the original scope does not fit.
 
-## Status
+## Current Shape
 
-- `V1.1` adds a bounded agentic replanning loop on top of the deterministic planner.
-- Capacity, demand, feasibility, and candidate scoring calculations remain non-LLM.
-- `business_goals` can now guide must-deliver protection, priority preservation, utilization limits, and buffer targets.
-- The original product brief is preserved in [`docs/product_spec.md`](docs/product_spec.md).
-- The agentic architecture and remaining future work are documented in [`docs/agentic_replanning_plan.md`](docs/agentic_replanning_plan.md).
+- Deterministic capacity planning CLI with JSON input and output
+- Bounded replanning loop with explicit business goals
+- Thin web UI on top of the existing planner
+- JSON-first UI contract for future agent or human-facing interfaces
+- Optional future LLM work documented separately from the shipped planner
 
 ## Web UI
 
@@ -65,16 +65,18 @@ mypy src
 
 ## Documentation
 
+- [`docs/current_state.md`](docs/current_state.md)
+  Current shipped capabilities, known gaps, and next-step direction.
 - [`docs/product_spec.md`](docs/product_spec.md)
-  Original requested product specification, now preserved in version control.
+  Historical original product brief that started the project.
 - [`docs/assumptions.md`](docs/assumptions.md)
   Current formulas, assumptions, and behavior notes.
 - [`docs/agentic_replanning_plan.md`](docs/agentic_replanning_plan.md)
-  The implemented agentic replanning design plus remaining gaps and next steps.
+  Future optional LLM-advisor direction, separate from the shipped deterministic planner.
 - [`docs/ui_json_spec.md`](docs/ui_json_spec.md)
   The human-readable guide for the future JSON-first UI contract.
 - [`docs/shipping_workflow.md`](docs/shipping_workflow.md)
-  Standard implementation, review, GitHub push, and CI flow.
+  Short pointer to the canonical shipping process in `AGENTS.md`.
 - [`AGENTS.md`](AGENTS.md)
   Repository instructions for coding agents.
 - [`specs/ui_handoff_v1.json`](specs/ui_handoff_v1.json)
