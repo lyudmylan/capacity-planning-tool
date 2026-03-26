@@ -1343,6 +1343,11 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(planning_input.holidays_days, 3.0)
         self.assertAlmostEqual(planning_input.vacation_days, 18 * (91 / 365))
         self.assertAlmostEqual(planning_input.sick_days, 8 * (91 / 365))
+        self.assertEqual(planning_input.features[0].size, "M")
+        self.assertIsNotNone(planning_input.features[0].estimates)
+        self.assertEqual(planning_input.features[0].estimates.eng, "M")
+        self.assertEqual(planning_input.features[0].estimates.qa, "S")
+        self.assertEqual(planning_input.features[0].estimates.devops, "XS")
 
     def test_v2_planning_schedule_example_parses(self) -> None:
         planning_input = PlanningInput.from_dict(
@@ -1360,21 +1365,281 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(planning_input.holidays_days, 1.0)
         self.assertAlmostEqual(planning_input.vacation_days, 18 * (12 / 365))
         self.assertAlmostEqual(planning_input.sick_days, 8 * (12 / 365))
+        self.assertEqual(planning_input.features[0].size, "S")
+        self.assertIsNotNone(planning_input.features[0].estimates)
+        self.assertEqual(planning_input.features[0].estimates.eng, "S")
+        self.assertEqual(planning_input.features[0].estimates.qa, "S")
+        self.assertIsNone(planning_input.features[0].estimates.devops)
 
-    def test_v2_month_auto_capacity_check_example_parses(self) -> None:
+    def test_feature_estimates_parse_with_legacy_eng_size(self) -> None:
         planning_input = PlanningInput.from_dict(
-            _load_raw_example("v2_rd_org_month_auto_capacity_check.json"),
+            {
+                "planning_mode": "capacity_check",
+                "planning_horizon": "month",
+                "calendar_year": 2026,
+                "month_index": 5,
+                "working_days": 20,
+                "holidays_days": 0,
+                "vacation_days": 0,
+                "sick_days": 0,
+                "team_structure": {
+                    "teams": [
+                        {
+                            "name": "API",
+                            "roles": [
+                                {
+                                    "role": "Backend Engineer",
+                                    "seniority": "Senior",
+                                    "count": 1
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "roadmap": {
+                    "features": [
+                        {
+                            "name": "Function Estimated Feature",
+                            "estimates": {
+                                "eng": "L",
+                                "qa": "M",
+                                "devops": "S"
+                            },
+                            "priority": "High"
+                        }
+                    ]
+                }
+            },
             load_defaults(),
         )
 
-        self.assertEqual(planning_input.planning_mode, "capacity_check")
-        self.assertEqual(planning_input.planning_horizon, "month")
-        self.assertEqual(planning_input.planning_period.start_date, date(2026, 1, 1))
-        self.assertEqual(planning_input.planning_period.end_date, date(2026, 1, 31))
-        self.assertEqual(planning_input.working_days, 22.0)
-        self.assertEqual(planning_input.holidays_days, 2.0)
-        self.assertAlmostEqual(planning_input.vacation_days, 15 * (31 / 365))
-        self.assertAlmostEqual(planning_input.sick_days, 8 * (31 / 365))
+        feature = planning_input.features[0]
+        self.assertEqual(feature.size, "L")
+        self.assertIsNotNone(feature.estimates)
+        self.assertEqual(feature.estimates.eng, "L")
+        self.assertEqual(feature.estimates.qa, "M")
+        self.assertEqual(feature.estimates.devops, "S")
+
+    def test_feature_estimates_omitted_functions_are_treated_as_zero_demand(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            {
+                "planning_mode": "capacity_check",
+                "planning_horizon": "month",
+                "calendar_year": 2026,
+                "month_index": 5,
+                "working_days": 20,
+                "holidays_days": 0,
+                "vacation_days": 0,
+                "sick_days": 0,
+                "team_structure": {
+                    "teams": [
+                        {
+                            "name": "API",
+                            "roles": [
+                                {
+                                    "role": "Backend Engineer",
+                                    "seniority": "Senior",
+                                    "count": 1
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "roadmap": {
+                    "features": [
+                        {
+                            "name": "Only QA Follow-up",
+                            "estimates": {
+                                "qa": "M"
+                            },
+                            "priority": "Medium"
+                        }
+                    ]
+                }
+            },
+            load_defaults(),
+        )
+
+        feature = planning_input.features[0]
+        self.assertIsNone(feature.size)
+        self.assertIsNotNone(feature.estimates)
+        self.assertIsNone(feature.estimates.eng)
+        self.assertEqual(feature.estimates.qa, "M")
+        self.assertIsNone(feature.estimates.devops)
+
+    def test_feature_estimates_reject_unsupported_keys(self) -> None:
+        with self.assertRaisesRegex(ValueError, "feature.estimates contains unsupported keys"):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 5,
+                    "working_days": 20,
+                    "holidays_days": 0,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "team_structure": {
+                        "teams": [
+                            {
+                                "name": "API",
+                                "roles": [
+                                    {
+                                        "role": "Backend Engineer",
+                                        "seniority": "Senior",
+                                        "count": 1
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {
+                        "features": [
+                            {
+                                "name": "Bad Estimate Keys",
+                                "estimates": {
+                                    "security": "S"
+                                },
+                                "priority": "Medium"
+                            }
+                        ]
+                    }
+                },
+                load_defaults(),
+            )
+
+    def test_feature_estimates_reject_invalid_size_values(self) -> None:
+        with self.assertRaisesRegex(ValueError, "feature.estimates.qa must be one of"):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 5,
+                    "working_days": 20,
+                    "holidays_days": 0,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "team_structure": {
+                        "teams": [
+                            {
+                                "name": "API",
+                                "roles": [
+                                    {
+                                        "role": "Backend Engineer",
+                                        "seniority": "Senior",
+                                        "count": 1
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {
+                        "features": [
+                            {
+                                "name": "Bad Estimate Size",
+                                "estimates": {
+                                    "eng": "S",
+                                    "qa": "XL"
+                                },
+                                "priority": "Medium"
+                            }
+                        ]
+                    }
+                },
+                load_defaults(),
+            )
+
+    def test_feature_size_and_estimates_eng_must_match(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "feature.size must match feature.estimates.eng",
+        ):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 5,
+                    "working_days": 20,
+                    "holidays_days": 0,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "team_structure": {
+                        "teams": [
+                            {
+                                "name": "API",
+                                "roles": [
+                                    {
+                                        "role": "Backend Engineer",
+                                        "seniority": "Senior",
+                                        "count": 1
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {
+                        "features": [
+                            {
+                                "name": "Mismatched Legacy Size",
+                                "size": "M",
+                                "estimates": {
+                                    "eng": "L"
+                                },
+                                "priority": "High"
+                            }
+                        ]
+                    }
+                },
+                load_defaults(),
+            )
+
+    def test_planner_rejects_function_estimates_without_eng_size_for_now(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            {
+                "planning_mode": "capacity_check",
+                "planning_horizon": "month",
+                "calendar_year": 2026,
+                "month_index": 5,
+                "working_days": 20,
+                "holidays_days": 0,
+                "vacation_days": 0,
+                "sick_days": 0,
+                "team_structure": {
+                    "teams": [
+                        {
+                            "name": "API",
+                            "roles": [
+                                {
+                                    "role": "Backend Engineer",
+                                    "seniority": "Senior",
+                                    "count": 1
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "roadmap": {
+                    "features": [
+                        {
+                            "name": "QA-only Follow-up",
+                            "estimates": {
+                                "qa": "M"
+                            },
+                            "priority": "Medium"
+                        }
+                    ]
+                }
+            },
+            load_defaults(),
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "current planner requires feature.size or feature.estimates.eng",
+        ):
+            plan_capacity(planning_input, load_defaults())
 
     def test_planner_rejects_planning_schedule_until_supported(self) -> None:
         planning_input = PlanningInput.from_dict(

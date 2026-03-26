@@ -86,6 +86,11 @@ def _feature_demands(
     )
     feature_demands: list[FeatureDemand] = []
     for index, feature in enumerate(planning_input.features):
+        if feature.size is None:
+            raise InputValidationError(
+                "The current planner requires feature.size or feature.estimates.eng until "
+                "function-level demand calculations are implemented."
+            )
         multiplier = defaults.feature_size_multipliers[feature.size]
         feature_demands.append(
             FeatureDemand(

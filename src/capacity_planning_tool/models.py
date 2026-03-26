@@ -15,6 +15,7 @@ class InputValidationError(ValueError):
 SUPPORTED_PLANNING_HORIZONS = {"year", "half_year", "quarter", "month", "sprint"}
 SUPPORTED_PLANNING_MODES = {"capacity_check", "planning_schedule"}
 SUPPORTED_MEMBER_FUNCTIONS = {"eng", "qa", "devops"}
+SUPPORTED_ESTIMATE_FUNCTIONS = ("eng", "qa", "devops")
 SUPPORTED_WORKWEEKS = {
     "mon-fri": {0, 1, 2, 3, 4},
     "sun-thu": {6, 0, 1, 2, 3},
@@ -701,20 +702,79 @@ class RdOrg:
 
 
 @dataclass(frozen=True, slots=True)
+class FeatureEstimates:
+    eng: str | None
+    qa: str | None
+    devops: str | None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> FeatureEstimates:
+        unknown_keys = sorted(set(data) - set(SUPPORTED_ESTIMATE_FUNCTIONS))
+        if unknown_keys:
+            raise InputValidationError(
+                "feature.estimates contains unsupported keys: " + ", ".join(unknown_keys)
+            )
+
+        parsed_values: dict[str, str | None] = {}
+        for function_name in SUPPORTED_ESTIMATE_FUNCTIONS:
+            raw_value = data.get(function_name)
+            if raw_value is None:
+                parsed_values[function_name] = None
+                continue
+            size = _require_string(raw_value, f"feature.estimates.{function_name}")
+            if size not in SUPPORTED_FEATURE_SIZES:
+                raise InputValidationError(
+                    f"feature.estimates.{function_name} must be one of "
+                    f"{sorted(SUPPORTED_FEATURE_SIZES)}."
+                )
+            parsed_values[function_name] = size
+
+        return cls(
+            eng=parsed_values["eng"],
+            qa=parsed_values["qa"],
+            devops=parsed_values["devops"],
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class Feature:
     id: str | None
     name: str
-    size: str
+    size: str | None
     priority: str
+    estimates: FeatureEstimates | None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Feature:
-        size = _require_string(data.get("size"), "feature.size")
+        raw_size = data.get("size")
+        size = None if raw_size is None else _require_string(raw_size, "feature.size")
         priority = _require_string(data.get("priority"), "feature.priority")
-        if size not in SUPPORTED_FEATURE_SIZES:
+        if size is not None and size not in SUPPORTED_FEATURE_SIZES:
             raise InputValidationError(
                 f"feature.size must be one of {sorted(SUPPORTED_FEATURE_SIZES)}."
             )
+        estimates_value = data.get("estimates")
+        estimates = (
+            None
+            if estimates_value is None
+            else FeatureEstimates.from_dict(
+                _require_mapping(estimates_value, "feature.estimates")
+            )
+        )
+        if size is None and estimates is None:
+            raise InputValidationError("feature must define size or estimates.")
+        if (
+            estimates is not None
+            and size is not None
+            and estimates.eng is not None
+            and estimates.eng != size
+        ):
+            raise InputValidationError(
+                "feature.size must match feature.estimates.eng when both are provided."
+            )
+        effective_size = (
+            size if size is not None else (None if estimates is None else estimates.eng)
+        )
         if priority not in SUPPORTED_PRIORITIES:
             raise InputValidationError(
                 f"feature.priority must be one of {sorted(SUPPORTED_PRIORITIES)}."
@@ -726,8 +786,9 @@ class Feature:
                 else _require_string(data.get("id"), "feature.id")
             ),
             name=_require_string(data.get("name"), "feature.name"),
-            size=size,
+            size=effective_size,
             priority=priority,
+            estimates=estimates,
         )
 
     @property
