@@ -1434,6 +1434,48 @@ class PlannerTests(unittest.TestCase):
                 load_defaults(),
             )
 
+    def test_capacity_check_rejects_null_org_schedule_policies(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "rd_org.org_schedule_policies is only supported for planning_schedule",
+        ):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "quarter",
+                    "calendar_year": 2026,
+                    "quarter_index": 2,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "us",
+                                "country_code": "US",
+                                "working_day_rules": {"workweek": "mon-fri"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8,
+                            }
+                        ],
+                        "org_schedule_policies": None,
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
+
     def test_planning_schedule_rejects_invalid_post_dev_min_ratio_bounds(self) -> None:
         with self.assertRaisesRegex(
             ValueError,

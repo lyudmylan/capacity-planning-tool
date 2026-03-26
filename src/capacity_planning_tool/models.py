@@ -749,8 +749,9 @@ class RdOrg:
                 + ", ".join(unknown_country_profiles)
             )
 
+        has_org_schedule_policies = "org_schedule_policies" in data
         org_schedule_policies_value = data.get("org_schedule_policies")
-        if org_schedule_policies_value is not None and planning_mode != "planning_schedule":
+        if has_org_schedule_policies and planning_mode != "planning_schedule":
             raise InputValidationError(
                 "rd_org.org_schedule_policies is only supported for planning_schedule."
             )
