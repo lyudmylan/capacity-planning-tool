@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from capacity_planning_tool.models import (
+    SUPPORTED_ESTIMATE_FUNCTIONS,
     DefaultsConfig,
     EngineerCapacity,
     FeatureDemand,
@@ -86,20 +87,44 @@ def _feature_demands(
     )
     feature_demands: list[FeatureDemand] = []
     for index, feature in enumerate(planning_input.features):
-        if feature.size is None:
-            raise InputValidationError(
-                "The current planner requires feature.size or feature.estimates.eng until "
-                "function-level demand calculations are implemented."
-            )
-        multiplier = defaults.feature_size_multipliers[feature.size]
+        demand_by_function = {
+            function_name: 0.0 for function_name in SUPPORTED_ESTIMATE_FUNCTIONS
+        }
+        if feature.estimates is not None:
+            for function_name in SUPPORTED_ESTIMATE_FUNCTIONS:
+                size = getattr(feature.estimates, function_name)
+                if size is None:
+                    continue
+                multiplier = defaults.feature_size_multipliers[size]
+                demand_by_function[function_name] = effective_dev_days_per_sprint * multiplier
+        elif feature.size is not None:
+            multiplier = defaults.feature_size_multipliers[feature.size]
+            demand_by_function["eng"] = effective_dev_days_per_sprint * multiplier
+        else:
+            raise InputValidationError("feature must define size or estimates.")
+
         feature_demands.append(
             FeatureDemand(
                 feature=feature,
-                demand_dev_days=effective_dev_days_per_sprint * multiplier,
+                demand_dev_days=demand_by_function["eng"],
+                demand_by_function=demand_by_function,
                 original_index=index,
             )
         )
     return feature_demands
+
+
+def _demand_by_function(
+    feature_demands: list[FeatureDemand], *, precision: int
+) -> dict[str, float]:
+    demand_totals = {function_name: 0.0 for function_name in SUPPORTED_ESTIMATE_FUNCTIONS}
+    for feature_demand in feature_demands:
+        for function_name, demand in feature_demand.demand_by_function.items():
+            demand_totals[function_name] += demand
+    return {
+        function_name: _round_number(demand, precision)
+        for function_name, demand in demand_totals.items()
+    }
 
 
 def _capacity_dev_days(

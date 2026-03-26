@@ -7,7 +7,7 @@ from pathlib import Path
 
 from capacity_planning_tool.config import load_defaults
 from capacity_planning_tool.models import DefaultsConfig, PlanningInput
-from capacity_planning_tool.planner import plan_capacity
+from capacity_planning_tool.planner import _demand_by_function, _feature_demands, plan_capacity
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -1420,6 +1420,55 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(feature.estimates.qa, "M")
         self.assertEqual(feature.estimates.devops, "S")
 
+    def test_feature_demands_include_per_function_values(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            {
+                "planning_mode": "capacity_check",
+                "planning_horizon": "month",
+                "calendar_year": 2026,
+                "month_index": 5,
+                "working_days": 20,
+                "holidays_days": 0,
+                "vacation_days": 0,
+                "sick_days": 0,
+                "team_structure": {
+                    "teams": [
+                        {
+                            "name": "API",
+                            "roles": [
+                                {
+                                    "role": "Backend Engineer",
+                                    "seniority": "Senior",
+                                    "count": 1
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "roadmap": {
+                    "features": [
+                        {
+                            "name": "Function Estimated Feature",
+                            "estimates": {
+                                "eng": "L",
+                                "qa": "M",
+                                "devops": "S"
+                            },
+                            "priority": "High"
+                        }
+                    ]
+                }
+            },
+            load_defaults(),
+        )
+
+        feature_demand = _feature_demands(planning_input, load_defaults())[0]
+        self.assertEqual(feature_demand.demand_dev_days, 24.0)
+        self.assertEqual(
+            feature_demand.demand_by_function,
+            {"eng": 24.0, "qa": 16.0, "devops": 8.0},
+        )
+
     def test_feature_estimates_omitted_functions_are_treated_as_zero_demand(self) -> None:
         planning_input = PlanningInput.from_dict(
             {
@@ -1466,6 +1515,13 @@ class PlannerTests(unittest.TestCase):
         self.assertIsNone(feature.estimates.eng)
         self.assertEqual(feature.estimates.qa, "M")
         self.assertIsNone(feature.estimates.devops)
+
+        feature_demand = _feature_demands(planning_input, load_defaults())[0]
+        self.assertEqual(feature_demand.demand_dev_days, 0.0)
+        self.assertEqual(
+            feature_demand.demand_by_function,
+            {"eng": 0.0, "qa": 16.0, "devops": 0.0},
+        )
 
     def test_feature_estimates_reject_unsupported_keys(self) -> None:
         with self.assertRaisesRegex(ValueError, "feature.estimates contains unsupported keys"):
@@ -1595,7 +1651,7 @@ class PlannerTests(unittest.TestCase):
                 load_defaults(),
             )
 
-    def test_planner_rejects_function_estimates_without_eng_size_for_now(self) -> None:
+    def test_legacy_feature_size_maps_to_eng_only_demand(self) -> None:
         planning_input = PlanningInput.from_dict(
             {
                 "planning_mode": "capacity_check",
@@ -1623,9 +1679,63 @@ class PlannerTests(unittest.TestCase):
                 "roadmap": {
                     "features": [
                         {
-                            "name": "QA-only Follow-up",
+                            "name": "Legacy Feature",
+                            "size": "M",
+                            "priority": "Medium"
+                        }
+                    ]
+                }
+            },
+            load_defaults(),
+        )
+
+        feature_demand = _feature_demands(planning_input, load_defaults())[0]
+        self.assertEqual(feature_demand.demand_dev_days, 16.0)
+        self.assertEqual(
+            feature_demand.demand_by_function,
+            {"eng": 16.0, "qa": 0.0, "devops": 0.0},
+        )
+
+    def test_total_demand_is_calculated_by_function(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            {
+                "planning_mode": "capacity_check",
+                "planning_horizon": "month",
+                "calendar_year": 2026,
+                "month_index": 5,
+                "working_days": 20,
+                "holidays_days": 0,
+                "vacation_days": 0,
+                "sick_days": 0,
+                "team_structure": {
+                    "teams": [
+                        {
+                            "name": "API",
+                            "roles": [
+                                {
+                                    "role": "Backend Engineer",
+                                    "seniority": "Senior",
+                                    "count": 1
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "roadmap": {
+                    "features": [
+                        {
+                            "name": "Feature A",
                             "estimates": {
-                                "qa": "M"
+                                "eng": "M",
+                                "qa": "S"
+                            },
+                            "priority": "High"
+                        },
+                        {
+                            "name": "Feature B",
+                            "estimates": {
+                                "qa": "M",
+                                "devops": "XS"
                             },
                             "priority": "Medium"
                         }
@@ -1635,11 +1745,8 @@ class PlannerTests(unittest.TestCase):
             load_defaults(),
         )
 
-        with self.assertRaisesRegex(
-            ValueError,
-            "current planner requires feature.size or feature.estimates.eng",
-        ):
-            plan_capacity(planning_input, load_defaults())
+        totals = _demand_by_function(_feature_demands(planning_input, load_defaults()), precision=2)
+        self.assertEqual(totals, {"eng": 16.0, "qa": 24.0, "devops": 4.0})
 
     def test_planner_rejects_planning_schedule_until_supported(self) -> None:
         planning_input = PlanningInput.from_dict(
