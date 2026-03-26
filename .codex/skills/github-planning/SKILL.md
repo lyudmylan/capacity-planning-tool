@@ -28,6 +28,9 @@ description: "Use when the user wants to plan work in GitHub for this repo: crea
    - out of scope
    - notes or source-of-truth reference when useful
 7. Assign issues only when the user asks or when the repo workflow clearly calls for it.
+8. When implementation work is shipped in a PR, link the PR back to the relevant issues.
+9. Prefer PR descriptions that use closing keywords such as `Closes #123` when the PR fully completes an issue.
+10. If a PR should not close an issue yet, add an issue comment with the PR link and current status instead.
 
 ## Default workflow
 
@@ -37,6 +40,7 @@ For product planning:
 2. Create or update a milestone when the user is organizing a version or phase.
 3. Create epic issues for major workstreams before creating implementation tasks.
 4. Link the issue content back to the relevant product direction or functional design.
+5. When a PR implements one or more issues, update the PR description or issue comments so traceability is visible from both sides.
 
 For issue maintenance:
 
@@ -50,6 +54,7 @@ For issue maintenance:
 - milestone-first planning when the user is organizing a release
 - epic-first breakdown before task-level issue creation
 - issue content grounded in `docs/product.md` instead of ad hoc wording
+- PR-to-issue traceability so implementation status is visible in GitHub
 
 ## Boundaries
 
