@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 
@@ -11,6 +12,8 @@ class InputValidationError(ValueError):
 
 
 SUPPORTED_PLANNING_HORIZONS = {"year", "half_year", "quarter", "month", "sprint"}
+SUPPORTED_PLANNING_MODES = {"capacity_check", "planning_schedule"}
+SUPPORTED_MEMBER_FUNCTIONS = {"eng", "qa", "devops"}
 SUPPORTED_FEATURE_SIZES = {"XS", "S", "M", "L"}
 SUPPORTED_PRIORITIES = {"Critical", "High", "Medium", "Low"}
 SUPPORTED_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
@@ -69,6 +72,109 @@ def _require_fraction(value: Any, field_name: str) -> float:
     if parsed_value < 0 or parsed_value > 1:
         raise InputValidationError(f"{field_name} must be between 0 and 1.")
     return parsed_value
+
+
+def _require_positive_integer(value: Any, field_name: str) -> int:
+    parsed_number = _require_non_negative_number(value, field_name)
+    parsed_value = int(parsed_number)
+    if parsed_value != parsed_number:
+        raise InputValidationError(f"{field_name} must be an integer.")
+    if parsed_value < 1:
+        raise InputValidationError(f"{field_name} must be at least 1.")
+    return parsed_value
+
+
+def _require_iso_date(value: Any, field_name: str) -> date:
+    raw_value = _require_string(value, field_name)
+    try:
+        return date.fromisoformat(raw_value)
+    except ValueError as exc:
+        raise InputValidationError(f"{field_name} must be a valid ISO date.") from exc
+
+
+def _parse_period_selectors(
+    data: dict[str, Any], planning_horizon: str
+) -> dict[str, int | date | None]:
+    selector_fields = {
+        "calendar_year",
+        "half_year_index",
+        "quarter_index",
+        "month_index",
+        "start_date",
+        "end_date",
+    }
+    present_selector_fields = {
+        field_name for field_name in selector_fields if data.get(field_name) is not None
+    }
+    required_fields_by_horizon = {
+        "year": {"calendar_year"},
+        "half_year": {"calendar_year", "half_year_index"},
+        "quarter": {"calendar_year", "quarter_index"},
+        "month": {"calendar_year", "month_index"},
+        "sprint": {"start_date", "end_date"},
+    }
+    required_fields = required_fields_by_horizon[planning_horizon]
+    missing_fields = sorted(required_fields - present_selector_fields)
+    if missing_fields:
+        raise InputValidationError(
+            f"{planning_horizon} planning requires: " + ", ".join(missing_fields) + "."
+        )
+    unexpected_fields = sorted(present_selector_fields - required_fields)
+    if unexpected_fields:
+        raise InputValidationError(
+            f"{planning_horizon} planning does not support: "
+            + ", ".join(unexpected_fields)
+            + "."
+        )
+
+    calendar_year = (
+        _require_positive_integer(data.get("calendar_year"), "calendar_year")
+        if "calendar_year" in required_fields
+        else None
+    )
+    half_year_index = (
+        _require_positive_integer(data.get("half_year_index"), "half_year_index")
+        if "half_year_index" in required_fields
+        else None
+    )
+    quarter_index = (
+        _require_positive_integer(data.get("quarter_index"), "quarter_index")
+        if "quarter_index" in required_fields
+        else None
+    )
+    month_index = (
+        _require_positive_integer(data.get("month_index"), "month_index")
+        if "month_index" in required_fields
+        else None
+    )
+    start_date = (
+        _require_iso_date(data.get("start_date"), "start_date")
+        if "start_date" in required_fields
+        else None
+    )
+    end_date = (
+        _require_iso_date(data.get("end_date"), "end_date")
+        if "end_date" in required_fields
+        else None
+    )
+
+    if half_year_index is not None and half_year_index not in {1, 2}:
+        raise InputValidationError("half_year_index must be 1 or 2.")
+    if quarter_index is not None and quarter_index not in {1, 2, 3, 4}:
+        raise InputValidationError("quarter_index must be 1, 2, 3, or 4.")
+    if month_index is not None and month_index not in set(range(1, 13)):
+        raise InputValidationError("month_index must be between 1 and 12.")
+    if start_date is not None and end_date is not None and end_date < start_date:
+        raise InputValidationError("end_date must be greater than or equal to start_date.")
+
+    return {
+        "calendar_year": calendar_year,
+        "half_year_index": half_year_index,
+        "quarter_index": quarter_index,
+        "month_index": month_index,
+        "start_date": start_date,
+        "end_date": end_date,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -325,6 +431,101 @@ class Team:
 
 
 @dataclass(frozen=True, slots=True)
+class RdOrgMember:
+    id: str
+    function: str
+    seniority: str
+    capacity_percent: float
+    country_profile: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any], defaults: DefaultsConfig) -> RdOrgMember:
+        function = _require_string(data.get("function"), "member.function")
+        if function not in SUPPORTED_MEMBER_FUNCTIONS:
+            raise InputValidationError(
+                f"member.function must be one of {sorted(SUPPORTED_MEMBER_FUNCTIONS)}."
+            )
+        capacity_percent = _require_fraction(
+            data.get("capacity_percent", defaults.capacity_percent_default),
+            "member.capacity_percent",
+        )
+        return cls(
+            id=_require_string(data.get("id"), "member.id"),
+            function=function,
+            seniority=_require_string(data.get("seniority"), "member.seniority"),
+            capacity_percent=capacity_percent,
+            country_profile=_require_string(data.get("country_profile"), "member.country_profile"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RdOrgTeam:
+    name: str
+    members: tuple[RdOrgMember, ...]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any], defaults: DefaultsConfig) -> RdOrgTeam:
+        members = tuple(
+            RdOrgMember.from_dict(_require_mapping(member, "member"), defaults)
+            for member in _require_list(data.get("members"), "team.members")
+        )
+        if not members:
+            raise InputValidationError("team.members must contain at least one member.")
+        return cls(
+            name=_require_string(data.get("name"), "team.name"),
+            members=members,
+        )
+
+    def to_team(self) -> Team:
+        grouped_members: dict[tuple[str, str], list[TeamMember]] = {}
+        for member in self.members:
+            grouped_members.setdefault((member.function, member.seniority), []).append(
+                TeamMember(name=member.id, capacity_percent=member.capacity_percent)
+            )
+
+        roles = tuple(
+            RoleGroup(
+                role=function,
+                seniority=seniority,
+                count=None,
+                capacity_percent=None,
+                members=tuple(members),
+            )
+            for function, seniority in sorted(grouped_members)
+            for members in [grouped_members[(function, seniority)]]
+        )
+        return Team(name=self.name, roles=roles)
+
+
+@dataclass(frozen=True, slots=True)
+class RdOrg:
+    teams: tuple[RdOrgTeam, ...]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any], defaults: DefaultsConfig) -> RdOrg:
+        teams = tuple(
+            RdOrgTeam.from_dict(_require_mapping(team, "team"), defaults)
+            for team in _require_list(data.get("teams"), "rd_org.teams")
+        )
+        if not teams:
+            raise InputValidationError("rd_org.teams must contain at least one team.")
+
+        member_ids = [member.id for team in teams for member in team.members]
+        duplicate_member_ids = sorted(
+            member_id for member_id in set(member_ids) if member_ids.count(member_id) > 1
+        )
+        if duplicate_member_ids:
+            raise InputValidationError(
+                "rd_org member ids must be unique: " + ", ".join(duplicate_member_ids)
+            )
+
+        return cls(teams=teams)
+
+    def to_teams(self) -> tuple[Team, ...]:
+        return tuple(team.to_team() for team in self.teams)
+
+
+@dataclass(frozen=True, slots=True)
 class Feature:
     id: str | None
     name: str
@@ -416,7 +617,14 @@ class BusinessGoals:
 
 @dataclass(frozen=True, slots=True)
 class PlanningInput:
+    planning_mode: str
     planning_horizon: str
+    calendar_year: int | None
+    half_year_index: int | None
+    quarter_index: int | None
+    month_index: int | None
+    start_date: date | None
+    end_date: date | None
     working_days: float
     holidays_days: float
     vacation_days: float
@@ -424,17 +632,24 @@ class PlanningInput:
     focus_factor: float
     sprint_days: float
     overhead_days_per_sprint: float
+    rd_org: RdOrg | None
     teams: tuple[Team, ...]
     features: tuple[Feature, ...]
     business_goals: BusinessGoals
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], defaults: DefaultsConfig) -> PlanningInput:
+        planning_mode = _require_string(data.get("planning_mode"), "planning_mode")
+        if planning_mode not in SUPPORTED_PLANNING_MODES:
+            raise InputValidationError(
+                f"planning_mode must be one of {sorted(SUPPORTED_PLANNING_MODES)}."
+            )
         planning_horizon = _require_string(data.get("planning_horizon"), "planning_horizon")
         if planning_horizon not in SUPPORTED_PLANNING_HORIZONS:
             raise InputValidationError(
                 f"planning_horizon must be one of {sorted(SUPPORTED_PLANNING_HORIZONS)}."
             )
+        period_selectors = _parse_period_selectors(data, planning_horizon)
 
         focus_factor = _require_fraction(
             data.get("focus_factor", defaults.focus_factor_default), "focus_factor"
@@ -449,12 +664,24 @@ class PlanningInput:
         if overhead_days_per_sprint > sprint_days:
             raise InputValidationError("overhead_days_per_sprint must not exceed sprint_days.")
 
-        team_structure = _require_mapping(data.get("team_structure"), "team_structure")
         roadmap = _require_mapping(data.get("roadmap"), "roadmap")
-        teams = tuple(
-            Team.from_dict(_require_mapping(team, "team"), defaults)
-            for team in _require_list(team_structure.get("teams"), "team_structure.teams")
-        )
+        rd_org_value = data.get("rd_org")
+        team_structure_value = data.get("team_structure")
+        if rd_org_value is not None and team_structure_value is not None:
+            raise InputValidationError("Provide either rd_org or team_structure, not both.")
+        if rd_org_value is None and team_structure_value is None:
+            raise InputValidationError("One of rd_org or team_structure is required.")
+
+        if rd_org_value is not None:
+            rd_org = RdOrg.from_dict(_require_mapping(rd_org_value, "rd_org"), defaults)
+            teams = rd_org.to_teams()
+        else:
+            rd_org = None
+            team_structure = _require_mapping(team_structure_value, "team_structure")
+            teams = tuple(
+                Team.from_dict(_require_mapping(team, "team"), defaults)
+                for team in _require_list(team_structure.get("teams"), "team_structure.teams")
+            )
         features = tuple(
             Feature.from_dict(_require_mapping(feature, "feature"))
             for feature in _require_list(roadmap.get("features"), "roadmap.features")
@@ -490,7 +717,14 @@ class PlanningInput:
             )
 
         return cls(
+            planning_mode=planning_mode,
             planning_horizon=planning_horizon,
+            calendar_year=period_selectors["calendar_year"],
+            half_year_index=period_selectors["half_year_index"],
+            quarter_index=period_selectors["quarter_index"],
+            month_index=period_selectors["month_index"],
+            start_date=period_selectors["start_date"],
+            end_date=period_selectors["end_date"],
             working_days=working_days,
             holidays_days=holidays_days,
             vacation_days=vacation_days,
@@ -498,6 +732,7 @@ class PlanningInput:
             focus_factor=focus_factor,
             sprint_days=sprint_days,
             overhead_days_per_sprint=overhead_days_per_sprint,
+            rd_org=rd_org,
             teams=teams,
             features=features,
             business_goals=business_goals,

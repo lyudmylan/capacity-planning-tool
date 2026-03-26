@@ -52,7 +52,10 @@ class PlannerTests(unittest.TestCase):
     def test_defaults_are_applied_when_optional_fields_are_missing(self) -> None:
         planning_input = PlanningInput.from_dict(
             {
+                "planning_mode": "capacity_check",
                 "planning_horizon": "sprint",
+                "start_date": "2026-03-02",
+                "end_date": "2026-03-13",
                 "working_days": 10,
                 "holidays_days": 0,
                 "vacation_days": 0,
@@ -93,7 +96,10 @@ class PlannerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             PlanningInput.from_dict(
                 {
+                    "planning_mode": "capacity_check",
                     "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 3,
                     "working_days": 5,
                     "holidays_days": 2,
                     "vacation_days": 2,
@@ -139,7 +145,10 @@ class PlannerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             PlanningInput.from_dict(
                 {
+                    "planning_mode": "capacity_check",
                     "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 4,
                     "working_days": 20,
                     "holidays_days": 1,
                     "vacation_days": 1,
@@ -171,6 +180,313 @@ class PlannerTests(unittest.TestCase):
                     "business_goals": {
                         "must_deliver_feature_ids": ["missing-feature"]
                     }
+                },
+                load_defaults(),
+            )
+
+    def test_invalid_planning_mode_raises_validation_error(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "roadmap_review",
+                    "planning_horizon": "year",
+                    "calendar_year": 2026,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "team_structure": {
+                        "teams": [
+                            {
+                                "name": "API",
+                                "roles": [
+                                    {
+                                        "role": "Backend Engineer",
+                                        "seniority": "Senior",
+                                        "count": 2
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_quarter_requires_quarter_index(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "quarter",
+                    "calendar_year": 2026,
+                    "working_days": 60,
+                    "holidays_days": 2,
+                    "vacation_days": 5,
+                    "sick_days": 1,
+                    "team_structure": {
+                        "teams": [
+                            {
+                                "name": "API",
+                                "roles": [
+                                    {
+                                        "role": "Backend Engineer",
+                                        "seniority": "Senior",
+                                        "count": 1
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_sprint_rejects_non_sprint_selectors(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "planning_schedule",
+                    "planning_horizon": "sprint",
+                    "calendar_year": 2026,
+                    "start_date": "2026-03-03",
+                    "end_date": "2026-03-14",
+                    "working_days": 10,
+                    "holidays_days": 0,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "team_structure": {
+                        "teams": [
+                            {
+                                "name": "API",
+                                "roles": [
+                                    {
+                                        "role": "Backend Engineer",
+                                        "seniority": "Senior",
+                                        "count": 1
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_sprint_requires_end_date_not_before_start_date(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "planning_schedule",
+                    "planning_horizon": "sprint",
+                    "start_date": "2026-03-14",
+                    "end_date": "2026-03-03",
+                    "working_days": 10,
+                    "holidays_days": 0,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "team_structure": {
+                        "teams": [
+                            {
+                                "name": "API",
+                                "roles": [
+                                    {
+                                        "role": "Backend Engineer",
+                                        "seniority": "Senior",
+                                        "count": 1
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_parses_and_adapts_into_legacy_teams(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            {
+                "planning_mode": "capacity_check",
+                "planning_horizon": "month",
+                "calendar_year": 2026,
+                "month_index": 5,
+                "working_days": 20,
+                "holidays_days": 1,
+                "vacation_days": 1,
+                "sick_days": 1,
+                "rd_org": {
+                    "teams": [
+                        {
+                            "name": "Core Product",
+                            "members": [
+                                {
+                                    "id": "eng-1",
+                                    "function": "eng",
+                                    "seniority": "Senior",
+                                    "country_profile": "il"
+                                },
+                                {
+                                    "id": "eng-2",
+                                    "function": "eng",
+                                    "seniority": "Senior",
+                                    "capacity_percent": 0.5,
+                                    "country_profile": "il"
+                                },
+                                {
+                                    "id": "qa-1",
+                                    "function": "qa",
+                                    "seniority": "Mid",
+                                    "country_profile": "il"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "roadmap": {
+                    "features": [
+                        {
+                            "name": "Quick Win",
+                            "size": "S",
+                            "priority": "High"
+                        }
+                    ]
+                }
+            },
+            load_defaults(),
+        )
+
+        self.assertIsNotNone(planning_input.rd_org)
+        self.assertEqual(len(planning_input.rd_org.teams), 1)
+        self.assertEqual(len(planning_input.teams), 1)
+        self.assertEqual(planning_input.teams[0].name, "Core Product")
+        self.assertEqual(
+            {(role.role, role.seniority, len(role.members)) for role in planning_input.teams[0].roles},
+            {("eng", "Senior", 2), ("qa", "Mid", 1)},
+        )
+        self.assertEqual(planning_input.teams[0].roles[0].members[0].capacity_percent, 1.0)
+
+        result = plan_capacity(planning_input, load_defaults())
+        self.assertIn("capacity_dev_days", result)
+        self.assertTrue(result["feasibility"])
+
+    def test_rd_org_duplicate_member_ids_raise_validation_error(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 2026,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "rd_org": {
+                        "teams": [
+                            {
+                                "name": "Platform",
+                                "members": [
+                                    {
+                                        "id": "shared-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il"
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "Infrastructure",
+                                "members": [
+                                    {
+                                        "id": "shared-1",
+                                        "function": "devops",
+                                        "seniority": "Mid",
+                                        "country_profile": "il"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_rejects_unsupported_member_function(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 2026,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "rd_org": {
+                        "teams": [
+                            {
+                                "name": "Platform",
+                                "members": [
+                                    {
+                                        "id": "design-1",
+                                        "function": "designer",
+                                        "seniority": "Senior",
+                                        "country_profile": "il"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_and_team_structure_together_raise_validation_error(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 2026,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "rd_org": {
+                        "teams": [
+                            {
+                                "name": "Platform",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "team_structure": {
+                        "teams": [
+                            {
+                                "name": "API",
+                                "roles": [
+                                    {
+                                        "role": "Backend Engineer",
+                                        "seniority": "Senior",
+                                        "count": 1
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
                 },
                 load_defaults(),
             )
