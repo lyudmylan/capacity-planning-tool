@@ -1,5 +1,8 @@
 {
+  "planning_mode": "capacity_check",
   "planning_horizon": "month",
+  "calendar_year": 2026,
+  "month_index": 3,
   "working_days": 20,
   "holidays_days": 1,
   "vacation_days": 2,
