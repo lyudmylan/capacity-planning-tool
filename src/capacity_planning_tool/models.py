@@ -884,8 +884,21 @@ class PlanningInput:
         else:
             working_days = _require_non_negative_number(working_days_value, "working_days")
             holidays_days = _require_non_negative_number(holidays_days_value, "holidays_days")
-        vacation_days = _require_non_negative_number(data.get("vacation_days"), "vacation_days")
-        sick_days = _require_non_negative_number(data.get("sick_days"), "sick_days")
+        vacation_days_value = data.get("vacation_days")
+        sick_days_value = data.get("sick_days")
+        if (vacation_days_value is None) != (sick_days_value is None):
+            raise InputValidationError(
+                "vacation_days and sick_days must be provided together or omitted together."
+            )
+        if vacation_days_value is None:
+            if rd_org is None:
+                raise InputValidationError(
+                    "vacation_days and sick_days are required when rd_org is not provided."
+                )
+            vacation_days, sick_days = _derive_rd_org_leave_days(rd_org, planning_period)
+        else:
+            vacation_days = _require_non_negative_number(vacation_days_value, "vacation_days")
+            sick_days = _require_non_negative_number(sick_days_value, "sick_days")
 
         unavailable_days = holidays_days + vacation_days + sick_days
         if unavailable_days > working_days:
@@ -995,6 +1008,42 @@ def _derive_rd_org_day_counts(
             "capacity is supported."
         )
     return next(iter(derived_counts))
+
+
+def _derive_proration_ratio(planning_period: PlanningPeriod) -> float:
+    ratio = 0.0
+    current_date = planning_period.start_date
+    while current_date <= planning_period.end_date:
+        year_length = 366 if monthrange(current_date.year, 2)[1] == 29 else 365
+        ratio += 1 / year_length
+        current_date += timedelta(days=1)
+    return ratio
+
+
+def _derive_country_profile_leave_days(
+    country_profile: CountryProfile, planning_period: PlanningPeriod
+) -> tuple[float, float]:
+    proration_ratio = _derive_proration_ratio(planning_period)
+    return (
+        country_profile.vacation_days_per_employee * proration_ratio,
+        country_profile.sick_days_per_employee * proration_ratio,
+    )
+
+
+def _derive_rd_org_leave_days(
+    rd_org: RdOrg, planning_period: PlanningPeriod
+) -> tuple[float, float]:
+    derived_leave_days = {
+        _derive_country_profile_leave_days(profile, planning_period)
+        for profile in rd_org.referenced_country_profiles()
+    }
+    if len(derived_leave_days) != 1:
+        raise InputValidationError(
+            "rd_org country profiles produce different derived vacation_days/sick_days; "
+            "explicit vacation_days and sick_days are required until mixed-country pooled "
+            "capacity is supported."
+        )
+    return next(iter(derived_leave_days))
 
 
 @dataclass(frozen=True, slots=True)

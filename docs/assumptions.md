@@ -22,11 +22,15 @@ Transition note:
 - `planning_mode` is now validated
 - period selectors are now required by planning horizon
 - `rd_org` is accepted at the model layer and adapted into the legacy planner team shape
-- country-based capacity derivation and proration are not active yet
-- manual day fields are still required until later v2 capacity-automation work lands
+- `working_days` and `holidays_days` can now be derived from `rd_org.country_profiles` when both are omitted
+- `vacation_days` and `sick_days` can now be prorated from annual country-profile allowances when both are omitted
+- mixed-country pooled inputs still require explicit manual day fields when the derived values differ
+- named holiday calendars are not active yet for derivation; explicit holiday date lists are supported
 
 - `planning_horizon` must be one of `year`, `half_year`, `quarter`, `month`, or `sprint`.
-- `working_days` is provided directly for the selected planning horizon.
+- `working_days` may be provided directly or derived from `rd_org.country_profiles`.
+- `holidays_days` may be provided directly or derived from `rd_org.country_profiles`.
+- `vacation_days` and `sick_days` may be provided directly or derived from annual country-profile allowances.
 - Teams are modeled as role groups.
 - Features may optionally define `id`. If `id` is omitted, the feature name is used as its business-goal reference.
 - A role group must define either:
@@ -52,6 +56,22 @@ The implementation stores the size multipliers in `config/defaults.json` and mul
 - `net_days_per_engineer = working_days - holidays_days - vacation_days - sick_days`
 - `effective_capacity_per_engineer = net_days_per_engineer * capacity_percent * focus_factor`
 - `total_capacity = sum(effective capacity across engineers)`
+
+## V2 Day Derivation
+
+When `rd_org` is provided and manual day fields are omitted in pairs:
+
+- `working_days` and `holidays_days` are derived from the selected `planning_period`, the
+  country profile `workweek`, and the explicit holiday `dates` list
+- `vacation_days` and `sick_days` are prorated from annual per-employee allowances
+
+Proration rule:
+
+- for each calendar day in the selected planning period, add `1 / days_in_that_year`
+- multiply the resulting ratio by the annual allowance
+
+This keeps proration deterministic for both calendar-based horizons and sprint windows,
+including date windows that may cross year boundaries.
 
 ## Evaluation Rules
 
