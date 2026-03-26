@@ -88,6 +88,52 @@ class ServerApiTests(unittest.TestCase):
         result = resp.get_json()
         self.assertIn("business_goal_assessment", result)
 
+    def test_plan_v2_capacity_check_input(self) -> None:
+        data = self._load_example("v2_rd_org_capacity_check.json")
+        resp = self.client.post(
+            "/api/plan",
+            data=json.dumps(data),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        result = resp.get_json()
+        self.assertEqual(
+            result["function_capacity_fit"],
+            {"eng": True, "qa": True, "devops": True},
+        )
+        self.assertEqual(result["bottleneck_functions"], [])
+        self.assertEqual(
+            result["selected_plan"]["function_capacity_fit"],
+            {"eng": True, "qa": True, "devops": True},
+        )
+        self.assertEqual(result["selected_plan"]["bottleneck_functions"], [])
+
+    def test_plan_v2_capacity_check_example_with_function_estimates(self) -> None:
+        data = self._load_example("v2_function_estimates_capacity_check.json")
+        resp = self.client.post(
+            "/api/plan",
+            data=json.dumps(data),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        result = resp.get_json()
+        self.assertIn("function_capacity_fit", result)
+        self.assertIn("bottleneck_functions", result)
+        self.assertIn("selected_plan", result)
+        self.assertEqual(set(result["function_capacity_fit"]), {"eng", "qa", "devops"})
+
+    def test_plan_planning_schedule_returns_validation_error_until_supported(self) -> None:
+        data = self._load_example("v2_rd_org_planning_schedule.json")
+        resp = self.client.post(
+            "/api/plan",
+            data=json.dumps(data),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 422)
+        result = resp.get_json()
+        self.assertIn("error", result)
+        self.assertIn("planning_schedule is not supported", result["error"])
+
     def test_plan_invalid_json_body(self) -> None:
         resp = self.client.post(
             "/api/plan",
@@ -132,6 +178,8 @@ class ServerApiTests(unittest.TestCase):
             "capacity_dev_days",
             "demand_dev_days",
             "utilization",
+            "function_capacity_fit",
+            "bottleneck_functions",
             "feasibility",
             "buffer_dev_days",
             "delivered_features",
