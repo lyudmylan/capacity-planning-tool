@@ -46,19 +46,26 @@ the planner is still transitioning from the legacy input shape.
 ## Shortcuts
 
 ```bash
+make bootstrap
 make test
 make check
+make ci
 make run-feasible
 make run-infeasible
 ```
 
+`make check` is the closest local equivalent of CI. Run `make bootstrap` once to create
+`.venv` and install the Python dev dependencies used by the checks. The UI test also requires a
+local `node` installation.
+
 ## Development
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests -v
-node --test tests/ui_logic.test.mjs
-ruff check .
-mypy src
+make test
+make ui-test
+make lint
+make typecheck
+make check
 ```
 
 ## Documentation
