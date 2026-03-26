@@ -3,10 +3,6 @@
   "planning_horizon": "sprint",
   "start_date": "2026-03-02",
   "end_date": "2026-03-13",
-  "working_days": 10,
-  "holidays_days": 0,
-  "vacation_days": 0,
-  "sick_days": 0,
   "focus_factor": 0.8,
   "rd_org": {
     "country_profiles": [
@@ -17,7 +13,7 @@
           "workweek": "sun-thu"
         },
         "holiday_calendar_rules": {
-          "calendar": "israeli"
+          "dates": ["2026-03-10"]
         },
         "vacation_days_per_employee": 18,
         "sick_days_per_employee": 8

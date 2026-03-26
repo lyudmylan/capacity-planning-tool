@@ -1339,6 +1339,10 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(len(planning_input.teams), 1)
         self.assertEqual(planning_input.planning_period.start_date, date(2026, 4, 1))
         self.assertEqual(planning_input.planning_period.end_date, date(2026, 6, 30))
+        self.assertEqual(planning_input.working_days, 65.0)
+        self.assertEqual(planning_input.holidays_days, 3.0)
+        self.assertAlmostEqual(planning_input.vacation_days, 18 * (91 / 365))
+        self.assertAlmostEqual(planning_input.sick_days, 8 * (91 / 365))
 
     def test_v2_planning_schedule_example_parses(self) -> None:
         planning_input = PlanningInput.from_dict(
@@ -1352,6 +1356,25 @@ class PlannerTests(unittest.TestCase):
         self.assertIsNotNone(planning_input.end_date)
         self.assertEqual(planning_input.planning_period.start_date, date(2026, 3, 2))
         self.assertEqual(planning_input.planning_period.end_date, date(2026, 3, 13))
+        self.assertEqual(planning_input.working_days, 9.0)
+        self.assertEqual(planning_input.holidays_days, 1.0)
+        self.assertAlmostEqual(planning_input.vacation_days, 18 * (12 / 365))
+        self.assertAlmostEqual(planning_input.sick_days, 8 * (12 / 365))
+
+    def test_v2_month_auto_capacity_check_example_parses(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            _load_raw_example("v2_rd_org_month_auto_capacity_check.json"),
+            load_defaults(),
+        )
+
+        self.assertEqual(planning_input.planning_mode, "capacity_check")
+        self.assertEqual(planning_input.planning_horizon, "month")
+        self.assertEqual(planning_input.planning_period.start_date, date(2026, 1, 1))
+        self.assertEqual(planning_input.planning_period.end_date, date(2026, 1, 31))
+        self.assertEqual(planning_input.working_days, 22.0)
+        self.assertEqual(planning_input.holidays_days, 2.0)
+        self.assertAlmostEqual(planning_input.vacation_days, 15 * (31 / 365))
+        self.assertAlmostEqual(planning_input.sick_days, 8 * (31 / 365))
 
     def test_planner_rejects_planning_schedule_until_supported(self) -> None:
         planning_input = PlanningInput.from_dict(
