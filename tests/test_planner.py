@@ -10,6 +10,7 @@ from capacity_planning_tool.models import DefaultsConfig, PlanningInput
 from capacity_planning_tool.planner import (
     _capacity_by_function,
     _demand_by_function,
+    _dependency_rule_evaluation,
     _feature_demands,
     plan_capacity,
 )
@@ -1520,6 +1521,85 @@ class PlannerTests(unittest.TestCase):
                 },
                 load_defaults(),
             )
+
+    def test_dependency_rule_evaluation_passes_when_blocked_work_fits(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            _load_raw_example("v2_rd_org_planning_schedule.json"),
+            load_defaults(),
+        )
+
+        evaluation = _dependency_rule_evaluation(
+            planning_input,
+            {"eng": 8.0, "qa": 8.0, "devops": 0.0},
+            {"eng": 16.0, "qa": 16.0, "devops": 8.0},
+            precision=2,
+        )
+
+        self.assertEqual(evaluation.eng_utilization, 0.5)
+        self.assertEqual(
+            evaluation.blocked_demand_by_function,
+            {"qa": 3.2, "devops": 0.0},
+        )
+        self.assertEqual(
+            evaluation.blocked_utilization_by_function,
+            {"qa": 0.2, "devops": 0.0},
+        )
+        self.assertTrue(evaluation.dependency_rules_pass)
+        self.assertEqual(evaluation.dependency_violations, ())
+
+    def test_dependency_rule_evaluation_records_blocked_downstream_failures(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            _load_raw_example("v2_rd_org_planning_schedule.json"),
+            load_defaults(),
+        )
+
+        evaluation = _dependency_rule_evaluation(
+            planning_input,
+            {"eng": 12.0, "qa": 10.0, "devops": 8.0},
+            {"eng": 16.0, "qa": 8.0, "devops": 4.0},
+            precision=2,
+        )
+
+        self.assertEqual(evaluation.eng_utilization, 0.75)
+        self.assertEqual(
+            evaluation.blocked_demand_by_function,
+            {"qa": 4.0, "devops": 3.2},
+        )
+        self.assertEqual(
+            evaluation.blocked_utilization_by_function,
+            {"qa": 0.5, "devops": 0.8},
+        )
+        self.assertFalse(evaluation.dependency_rules_pass)
+        self.assertEqual(len(evaluation.dependency_violations), 2)
+        self.assertIn("qa dependency rule failed", evaluation.dependency_violations[0])
+        self.assertIn("devops dependency rule failed", evaluation.dependency_violations[1])
+
+    def test_dependency_rule_evaluation_ignores_schedule_policies_outside_planning_schedule(
+        self,
+    ) -> None:
+        planning_input = PlanningInput.from_dict(
+            _load_raw_example("v2_rd_org_capacity_check.json"),
+            load_defaults(),
+        )
+
+        evaluation = _dependency_rule_evaluation(
+            planning_input,
+            {"eng": 16.0, "qa": 8.0, "devops": 4.0},
+            {"eng": 20.0, "qa": 20.0, "devops": 10.0},
+            precision=2,
+        )
+
+        self.assertEqual(evaluation.eng_utilization, 0.0)
+        self.assertEqual(
+            evaluation.blocked_demand_by_function,
+            {"qa": 0.0, "devops": 0.0},
+        )
+        self.assertEqual(
+            evaluation.blocked_utilization_by_function,
+            {"qa": 0.0, "devops": 0.0},
+        )
+        self.assertTrue(evaluation.dependency_rules_pass)
+        self.assertEqual(evaluation.dependency_violations, ())
 
     def test_v2_function_estimates_capacity_check_example_parses(self) -> None:
         planning_input = PlanningInput.from_dict(

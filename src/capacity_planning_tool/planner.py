@@ -39,6 +39,15 @@ class EvaluatedPlan:
     score: tuple[Any, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class DependencyRuleEvaluation:
+    eng_utilization: float
+    blocked_demand_by_function: dict[str, float]
+    blocked_utilization_by_function: dict[str, float]
+    dependency_rules_pass: bool
+    dependency_violations: tuple[str, ...]
+
+
 def _expand_engineers(
     planning_input: PlanningInput, defaults: DefaultsConfig
 ) -> list[EngineerCapacity]:
@@ -214,6 +223,75 @@ def _function_capacity_fit(
         if not capacity_fit[function_name]
     )
     return capacity_fit, bottleneck_functions
+
+
+def _dependency_rule_evaluation(
+    planning_input: PlanningInput,
+    demand_by_function: dict[str, float],
+    capacity_by_function: dict[str, float],
+    *,
+    precision: int,
+) -> DependencyRuleEvaluation:
+    empty_downstream = {"qa": 0.0, "devops": 0.0}
+    if planning_input.planning_mode != "planning_schedule" or planning_input.rd_org is None:
+        return DependencyRuleEvaluation(
+            eng_utilization=0.0,
+            blocked_demand_by_function=empty_downstream,
+            blocked_utilization_by_function=empty_downstream,
+            dependency_rules_pass=True,
+            dependency_violations=(),
+        )
+
+    org_schedule_policies = planning_input.rd_org.org_schedule_policies
+    post_dev_min_ratio = (
+        None if org_schedule_policies is None else org_schedule_policies.post_dev_min_ratio
+    )
+    if post_dev_min_ratio is None:
+        return DependencyRuleEvaluation(
+            eng_utilization=0.0,
+            blocked_demand_by_function=empty_downstream,
+            blocked_utilization_by_function=empty_downstream,
+            dependency_rules_pass=True,
+            dependency_violations=(),
+        )
+
+    eng_utilization = _utilization(
+        demand_by_function["eng"],
+        capacity_by_function["eng"],
+        precision=precision,
+    )
+    blocked_demand_by_function: dict[str, float] = {}
+    blocked_utilization_by_function: dict[str, float] = {}
+    dependency_violations: list[str] = []
+    for function_name in ("qa", "devops"):
+        ratio = getattr(post_dev_min_ratio, function_name)
+        if ratio is None:
+            blocked_demand = 0.0
+        else:
+            blocked_demand = _round_number(demand_by_function[function_name] * ratio, precision)
+        blocked_demand_by_function[function_name] = blocked_demand
+
+        blocked_utilization = _utilization(
+            blocked_demand,
+            capacity_by_function[function_name],
+            precision=precision,
+        )
+        blocked_utilization_by_function[function_name] = blocked_utilization
+
+        if eng_utilization + blocked_utilization > 1:
+            dependency_violations.append(
+                f"{function_name} dependency rule failed: eng_utilization "
+                f"({eng_utilization}) + blocked_utilization_{function_name} "
+                f"({blocked_utilization}) exceeds 1."
+            )
+
+    return DependencyRuleEvaluation(
+        eng_utilization=eng_utilization,
+        blocked_demand_by_function=blocked_demand_by_function,
+        blocked_utilization_by_function=blocked_utilization_by_function,
+        dependency_rules_pass=not dependency_violations,
+        dependency_violations=tuple(dependency_violations),
+    )
 
 
 def _demand_dev_days(feature_demands: list[FeatureDemand], *, precision: int) -> float:
