@@ -17,6 +17,11 @@ def _load_input(name: str) -> PlanningInput:
     return PlanningInput.from_dict(raw_input, load_defaults())
 
 
+def _load_raw_example(name: str) -> dict:
+    with (PROJECT_ROOT / "examples" / name).open("r", encoding="utf-8") as input_file:
+        return json.load(input_file)
+
+
 class PlannerTests(unittest.TestCase):
     def test_feasible_plan_keeps_all_features_delivered(self) -> None:
         result = plan_capacity(_load_input("feasible_plan.json"), load_defaults())
@@ -319,6 +324,16 @@ class PlannerTests(unittest.TestCase):
                 "vacation_days": 1,
                 "sick_days": 1,
                 "rd_org": {
+                    "country_profiles": [
+                        {
+                            "id": "il",
+                            "country_code": "IL",
+                            "working_day_rules": {"workweek": "sun-thu"},
+                            "holiday_calendar_rules": {"calendar": "israeli"},
+                            "vacation_days_per_employee": 18,
+                            "sick_days_per_employee": 8
+                        }
+                    ],
                     "teams": [
                         {
                             "name": "Core Product",
@@ -385,6 +400,16 @@ class PlannerTests(unittest.TestCase):
                     "vacation_days": 20,
                     "sick_days": 5,
                     "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"calendar": "israeli"},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
                         "teams": [
                             {
                                 "name": "Platform",
@@ -427,6 +452,16 @@ class PlannerTests(unittest.TestCase):
                     "vacation_days": 20,
                     "sick_days": 5,
                     "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"calendar": "israeli"},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
                         "teams": [
                             {
                                 "name": "Platform",
@@ -458,6 +493,16 @@ class PlannerTests(unittest.TestCase):
                     "vacation_days": 20,
                     "sick_days": 5,
                     "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"calendar": "israeli"},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
                         "teams": [
                             {
                                 "name": "Platform",
@@ -481,6 +526,311 @@ class PlannerTests(unittest.TestCase):
                                         "role": "Backend Engineer",
                                         "seniority": "Senior",
                                         "count": 1
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_rejects_unknown_country_profile_reference(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 2026,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"calendar": "israeli"},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Platform",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_rejects_duplicate_country_profile_ids(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 2026,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"calendar": "israeli"},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            },
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"calendar": "israeli"},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Platform",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_rejects_empty_country_profiles(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 2026,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "rd_org": {
+                        "country_profiles": [],
+                        "teams": [
+                            {
+                                "name": "Platform",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_rejects_negative_country_profile_allowances(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 2026,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"calendar": "israeli"},
+                                "vacation_days_per_employee": -1,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Platform",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 2026,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"calendar": "israeli"},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": -1
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Platform",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_rejects_invalid_country_profile_rule_objects(self) -> None:
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 2026,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "holiday_calendar_rules": {"calendar": "israeli"},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Platform",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []}
+                },
+                load_defaults(),
+            )
+
+    def test_v2_capacity_check_example_parses(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            _load_raw_example("v2_rd_org_capacity_check.json"),
+            load_defaults(),
+        )
+
+        self.assertEqual(planning_input.planning_mode, "capacity_check")
+        self.assertIsNotNone(planning_input.rd_org)
+        self.assertEqual(len(planning_input.rd_org.country_profiles), 1)
+        self.assertEqual(len(planning_input.teams), 1)
+
+    def test_v2_planning_schedule_example_parses(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            _load_raw_example("v2_rd_org_planning_schedule.json"),
+            load_defaults(),
+        )
+
+        self.assertEqual(planning_input.planning_mode, "planning_schedule")
+        self.assertEqual(planning_input.planning_horizon, "sprint")
+        self.assertIsNotNone(planning_input.start_date)
+        self.assertIsNotNone(planning_input.end_date)
+
+        with self.assertRaises(ValueError):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 2026,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": [],
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Platform",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il"
                                     }
                                 ]
                             }

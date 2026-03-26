@@ -459,6 +459,38 @@ class RdOrgMember:
 
 
 @dataclass(frozen=True, slots=True)
+class CountryProfile:
+    id: str
+    country_code: str
+    working_day_rules: dict[str, Any]
+    holiday_calendar_rules: dict[str, Any]
+    vacation_days_per_employee: float
+    sick_days_per_employee: float
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CountryProfile:
+        return cls(
+            id=_require_string(data.get("id"), "country_profile.id"),
+            country_code=_require_string(data.get("country_code"), "country_profile.country_code"),
+            working_day_rules=_require_mapping(
+                data.get("working_day_rules"), "country_profile.working_day_rules"
+            ),
+            holiday_calendar_rules=_require_mapping(
+                data.get("holiday_calendar_rules"),
+                "country_profile.holiday_calendar_rules",
+            ),
+            vacation_days_per_employee=_require_non_negative_number(
+                data.get("vacation_days_per_employee"),
+                "country_profile.vacation_days_per_employee",
+            ),
+            sick_days_per_employee=_require_non_negative_number(
+                data.get("sick_days_per_employee"),
+                "country_profile.sick_days_per_employee",
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class RdOrgTeam:
     name: str
     members: tuple[RdOrgMember, ...]
@@ -499,10 +531,32 @@ class RdOrgTeam:
 
 @dataclass(frozen=True, slots=True)
 class RdOrg:
+    country_profiles: tuple[CountryProfile, ...]
     teams: tuple[RdOrgTeam, ...]
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], defaults: DefaultsConfig) -> RdOrg:
+        country_profiles = tuple(
+            CountryProfile.from_dict(_require_mapping(profile, "country_profile"))
+            for profile in _require_list(data.get("country_profiles"), "rd_org.country_profiles")
+        )
+        if not country_profiles:
+            raise InputValidationError(
+                "rd_org.country_profiles must contain at least one country profile."
+            )
+
+        country_profile_ids = [profile.id for profile in country_profiles]
+        duplicate_country_profile_ids = sorted(
+            profile_id
+            for profile_id in set(country_profile_ids)
+            if country_profile_ids.count(profile_id) > 1
+        )
+        if duplicate_country_profile_ids:
+            raise InputValidationError(
+                "rd_org country profile ids must be unique: "
+                + ", ".join(duplicate_country_profile_ids)
+            )
+
         teams = tuple(
             RdOrgTeam.from_dict(_require_mapping(team, "team"), defaults)
             for team in _require_list(data.get("teams"), "rd_org.teams")
@@ -519,7 +573,21 @@ class RdOrg:
                 "rd_org member ids must be unique: " + ", ".join(duplicate_member_ids)
             )
 
-        return cls(teams=teams)
+        unknown_country_profiles = sorted(
+            {
+                member.country_profile
+                for team in teams
+                for member in team.members
+                if member.country_profile not in set(country_profile_ids)
+            }
+        )
+        if unknown_country_profiles:
+            raise InputValidationError(
+                "rd_org members reference unknown country profiles: "
+                + ", ".join(unknown_country_profiles)
+            )
+
+        return cls(country_profiles=country_profiles, teams=teams)
 
     def to_teams(self) -> tuple[Team, ...]:
         return tuple(team.to_team() for team in self.teams)

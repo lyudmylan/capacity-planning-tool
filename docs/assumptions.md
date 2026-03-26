@@ -16,6 +16,15 @@ V1 evaluates a single planning horizon at a time. It does not split work by week
 
 ## Input Assumptions
 
+Transition note:
+
+- the repo is currently in a v2 schema-foundation transition
+- `planning_mode` is now validated
+- period selectors are now required by planning horizon
+- `rd_org` is accepted at the model layer and adapted into the legacy planner team shape
+- country-based capacity derivation and proration are not active yet
+- manual day fields are still required until later v2 capacity-automation work lands
+
 - `planning_horizon` must be one of `year`, `half_year`, `quarter`, `month`, or `sprint`.
 - `working_days` is provided directly for the selected planning horizon.
 - Teams are modeled as role groups.

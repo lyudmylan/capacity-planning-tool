@@ -1,0 +1,63 @@
+{
+  "planning_mode": "capacity_check",
+  "planning_horizon": "quarter",
+  "calendar_year": 2026,
+  "quarter_index": 2,
+  "working_days": 60,
+  "holidays_days": 3,
+  "vacation_days": 5,
+  "sick_days": 2,
+  "focus_factor": 0.8,
+  "rd_org": {
+    "country_profiles": [
+      {
+        "id": "il",
+        "country_code": "IL",
+        "working_day_rules": {
+          "workweek": "sun-thu"
+        },
+        "holiday_calendar_rules": {
+          "calendar": "israeli"
+        },
+        "vacation_days_per_employee": 18,
+        "sick_days_per_employee": 8
+      }
+    ],
+    "teams": [
+      {
+        "name": "Core Product",
+        "members": [
+          {
+            "id": "eng-1",
+            "function": "eng",
+            "seniority": "Senior",
+            "country_profile": "il"
+          },
+          {
+            "id": "qa-1",
+            "function": "qa",
+            "seniority": "Mid",
+            "country_profile": "il"
+          },
+          {
+            "id": "ops-1",
+            "function": "devops",
+            "seniority": "Senior",
+            "capacity_percent": 0.5,
+            "country_profile": "il"
+          }
+        ]
+      }
+    ]
+  },
+  "roadmap": {
+    "features": [
+      {
+        "id": "feature-1",
+        "name": "Roadmap Validation",
+        "size": "M",
+        "priority": "High"
+      }
+    ]
+  }
+}
