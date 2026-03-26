@@ -40,8 +40,10 @@ PYTHONPATH=src python3 -m capacity_planning_tool --input examples/infeasible_pla
 Normal CLI runs default to warning-level logging so stdout stays clean JSON. Use `--log-level INFO` when you want runtime trace output, or `--quiet` to suppress everything except errors.
 
 Additional v2 schema examples live in `examples/v2_rd_org_capacity_check.json` and
-`examples/v2_rd_org_planning_schedule.json`. They are useful for contract and validation work while
-the planner is still transitioning from the legacy input shape.
+`examples/v2_rd_org_planning_schedule.json`. A month-focused automatic derivation example also lives
+in `examples/v2_rd_org_month_auto_capacity_check.json`. They are useful for contract and validation
+work while the planner is still transitioning from the legacy input shape, and they now demonstrate
+automatic working-day, holiday, vacation, and sick-day derivation from `rd_org.country_profiles`.
 
 ## Shortcuts
 
