@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from datetime import date
 from pathlib import Path
 
 from capacity_planning_tool.config import load_defaults
@@ -248,6 +249,86 @@ class PlannerTests(unittest.TestCase):
                 },
                 load_defaults(),
             )
+
+    def test_planning_period_is_derived_for_each_horizon(self) -> None:
+        defaults = load_defaults()
+        base_payload = {
+            "planning_mode": "capacity_check",
+            "working_days": 20,
+            "holidays_days": 0,
+            "vacation_days": 0,
+            "sick_days": 0,
+            "team_structure": {
+                "teams": [
+                    {
+                        "name": "API",
+                        "roles": [
+                            {
+                                "role": "Backend Engineer",
+                                "seniority": "Senior",
+                                "count": 1,
+                            }
+                        ],
+                    }
+                ]
+            },
+            "roadmap": {"features": []},
+        }
+        scenarios = [
+            (
+                "year",
+                {"calendar_year": 2026},
+                date(2026, 1, 1),
+                date(2026, 12, 31),
+                365,
+            ),
+            (
+                "half_year",
+                {"calendar_year": 2026, "half_year_index": 2},
+                date(2026, 7, 1),
+                date(2026, 12, 31),
+                184,
+            ),
+            (
+                "quarter",
+                {"calendar_year": 2026, "quarter_index": 3},
+                date(2026, 7, 1),
+                date(2026, 9, 30),
+                92,
+            ),
+            (
+                "month",
+                {"calendar_year": 2026, "month_index": 2},
+                date(2026, 2, 1),
+                date(2026, 2, 28),
+                28,
+            ),
+            (
+                "sprint",
+                {"start_date": "2026-03-02", "end_date": "2026-03-13"},
+                date(2026, 3, 2),
+                date(2026, 3, 13),
+                12,
+            ),
+        ]
+
+        for planning_horizon, selectors, expected_start, expected_end, expected_days in scenarios:
+            with self.subTest(planning_horizon=planning_horizon):
+                planning_input = PlanningInput.from_dict(
+                    {
+                        **base_payload,
+                        "planning_horizon": planning_horizon,
+                        **selectors,
+                    },
+                    defaults,
+                )
+
+                self.assertEqual(planning_input.planning_period.start_date, expected_start)
+                self.assertEqual(planning_input.planning_period.end_date, expected_end)
+                self.assertEqual(
+                    planning_input.planning_period.total_calendar_days,
+                    expected_days,
+                )
 
     def test_sprint_rejects_non_sprint_selectors(self) -> None:
         with self.assertRaises(ValueError):
@@ -793,6 +874,8 @@ class PlannerTests(unittest.TestCase):
         self.assertIsNotNone(planning_input.rd_org)
         self.assertEqual(len(planning_input.rd_org.country_profiles), 1)
         self.assertEqual(len(planning_input.teams), 1)
+        self.assertEqual(planning_input.planning_period.start_date, date(2026, 4, 1))
+        self.assertEqual(planning_input.planning_period.end_date, date(2026, 6, 30))
 
     def test_v2_planning_schedule_example_parses(self) -> None:
         planning_input = PlanningInput.from_dict(
@@ -804,6 +887,8 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(planning_input.planning_horizon, "sprint")
         self.assertIsNotNone(planning_input.start_date)
         self.assertIsNotNone(planning_input.end_date)
+        self.assertEqual(planning_input.planning_period.start_date, date(2026, 3, 2))
+        self.assertEqual(planning_input.planning_period.end_date, date(2026, 3, 13))
 
     def test_planner_rejects_planning_schedule_until_supported(self) -> None:
         planning_input = PlanningInput.from_dict(
