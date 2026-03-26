@@ -1120,6 +1120,7 @@ class EngineerCapacity:
 class FeatureDemand:
     feature: Feature
     demand_dev_days: float
+    demand_by_function: dict[str, float]
     original_index: int
 
     def to_dict(self, *, precision: int) -> dict[str, Any]:
