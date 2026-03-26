@@ -250,6 +250,36 @@ class PlannerTests(unittest.TestCase):
                 load_defaults(),
             )
 
+    def test_calendar_year_above_python_date_range_raises_validation_error(self) -> None:
+        with self.assertRaisesRegex(ValueError, "calendar_year must be less than or equal to 9999"):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 10000,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "team_structure": {
+                        "teams": [
+                            {
+                                "name": "API",
+                                "roles": [
+                                    {
+                                        "role": "Backend Engineer",
+                                        "seniority": "Senior",
+                                        "count": 1,
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
+
     def test_planning_period_is_derived_for_each_horizon(self) -> None:
         defaults = load_defaults()
         base_payload = {

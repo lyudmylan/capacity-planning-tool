@@ -89,6 +89,13 @@ def _require_positive_integer(value: Any, field_name: str) -> int:
     return parsed_value
 
 
+def _require_calendar_year(value: Any, field_name: str) -> int:
+    parsed_value = _require_positive_integer(value, field_name)
+    if parsed_value > 9999:
+        raise InputValidationError(f"{field_name} must be less than or equal to 9999.")
+    return parsed_value
+
+
 def _require_iso_date(value: Any, field_name: str) -> date:
     raw_value = _require_string(value, field_name)
     try:
@@ -158,7 +165,7 @@ def _parse_period_selectors(
         )
 
     calendar_year = (
-        _require_positive_integer(data.get("calendar_year"), "calendar_year")
+        _require_calendar_year(data.get("calendar_year"), "calendar_year")
         if "calendar_year" in required_fields
         else None
     )
