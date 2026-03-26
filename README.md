@@ -41,9 +41,11 @@ Normal CLI runs default to warning-level logging so stdout stays clean JSON. Use
 
 Additional v2 schema examples live in `examples/v2_rd_org_capacity_check.json` and
 `examples/v2_rd_org_planning_schedule.json`. A month-focused automatic derivation example also lives
-in `examples/v2_rd_org_month_auto_capacity_check.json`. They are useful for contract and validation
-work while the planner is still transitioning from the legacy input shape, and they now demonstrate
-automatic working-day, holiday, vacation, and sick-day derivation from `rd_org.country_profiles`.
+in `examples/v2_rd_org_month_auto_capacity_check.json`, and a dependency-pressure planning example
+lives in `examples/v2_rd_org_planning_schedule_dependency_only.json`. They are useful for contract
+and validation work while the planner is still transitioning from the legacy input shape, and they
+now demonstrate automatic working-day, holiday, vacation, and sick-day derivation from
+`rd_org.country_profiles` plus deterministic planning-schedule dependency evaluation.
 
 ## Shortcuts
 
