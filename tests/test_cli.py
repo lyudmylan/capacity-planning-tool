@@ -34,6 +34,23 @@ class CliTests(unittest.TestCase):
         self.assertIn("selected_plan", result)
         self.assertIn("business_goal_assessment", result)
 
+    def test_cli_accepts_v2_rd_org_capacity_check_example(self) -> None:
+        input_path = PROJECT_ROOT / "examples" / "v2_rd_org_capacity_check.json"
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(PROJECT_ROOT / "src")
+        completed = subprocess.run(
+            [sys.executable, "-m", "capacity_planning_tool", "--input", str(input_path)],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+        result = json.loads(completed.stdout)
+        self.assertEqual(completed.stderr, "")
+        self.assertIn("capacity_dev_days", result)
+
     def test_cli_can_write_output_file(self) -> None:
         input_path = PROJECT_ROOT / "examples" / "infeasible_plan.json"
         environment = os.environ.copy()
