@@ -51,6 +51,23 @@ class CliTests(unittest.TestCase):
         self.assertEqual(completed.stderr, "")
         self.assertIn("capacity_dev_days", result)
 
+    def test_cli_accepts_v2_function_estimates_capacity_check_example(self) -> None:
+        input_path = PROJECT_ROOT / "examples" / "v2_function_estimates_capacity_check.json"
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(PROJECT_ROOT / "src")
+        completed = subprocess.run(
+            [sys.executable, "-m", "capacity_planning_tool", "--input", str(input_path)],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+        result = json.loads(completed.stdout)
+        self.assertEqual(completed.stderr, "")
+        self.assertIn("capacity_dev_days", result)
+
     def test_cli_accepts_v2_rd_org_month_auto_capacity_check_example(self) -> None:
         input_path = PROJECT_ROOT / "examples" / "v2_rd_org_month_auto_capacity_check.json"
         environment = os.environ.copy()
