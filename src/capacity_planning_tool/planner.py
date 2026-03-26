@@ -133,18 +133,65 @@ def _demand_by_function(
     }
 
 
+def _net_available_days(planning_input: PlanningInput) -> float:
+    return (
+        planning_input.working_days
+        - planning_input.holidays_days
+        - planning_input.vacation_days
+        - planning_input.sick_days
+    )
+
+
+def _capacity_by_function(
+    planning_input: PlanningInput, defaults: DefaultsConfig, *, precision: int
+) -> dict[str, float]:
+    net_days_per_member = _net_available_days(planning_input)
+    capacity_totals = {function_name: 0.0 for function_name in SUPPORTED_ESTIMATE_FUNCTIONS}
+
+    for team in planning_input.teams:
+        for role in team.roles:
+            if role.role in SUPPORTED_ESTIMATE_FUNCTIONS:
+                function_name = role.role
+            elif planning_input.rd_org is None:
+                function_name = "eng"
+            else:
+                continue
+
+            if role.members:
+                for member in role.members:
+                    capacity_totals[function_name] += (
+                        net_days_per_member
+                        * member.capacity_percent
+                        * planning_input.focus_factor
+                    )
+                continue
+
+            group_capacity = (
+                role.capacity_percent
+                if role.capacity_percent is not None
+                else defaults.capacity_percent_default
+            )
+            engineer_count = role.count if role.count is not None else 0
+            capacity_totals[function_name] += (
+                net_days_per_member
+                * group_capacity
+                * engineer_count
+                * planning_input.focus_factor
+            )
+
+    return {
+        function_name: _round_number(total_capacity, precision)
+        for function_name, total_capacity in capacity_totals.items()
+    }
+
+
 def _capacity_dev_days(
     planning_input: PlanningInput,
     engineer_capacities: list[EngineerCapacity],
     *,
     precision: int,
 ) -> float:
-    net_days_per_engineer = (
-        planning_input.working_days
-        - planning_input.holidays_days
-        - planning_input.vacation_days
-        - planning_input.sick_days
-    )
+    net_days_per_engineer = _net_available_days(planning_input)
     total_capacity = sum(
         net_days_per_engineer * engineer.capacity_percent * planning_input.focus_factor
         for engineer in engineer_capacities

@@ -7,7 +7,12 @@ from pathlib import Path
 
 from capacity_planning_tool.config import load_defaults
 from capacity_planning_tool.models import DefaultsConfig, PlanningInput
-from capacity_planning_tool.planner import _demand_by_function, _feature_demands, plan_capacity
+from capacity_planning_tool.planner import (
+    _capacity_by_function,
+    _demand_by_function,
+    _feature_demands,
+    plan_capacity,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -1821,6 +1826,85 @@ class PlannerTests(unittest.TestCase):
 
         totals = _demand_by_function(_feature_demands(planning_input, load_defaults()), precision=2)
         self.assertEqual(totals, {"eng": 16.0, "qa": 24.0, "devops": 4.0})
+
+    def test_rd_org_capacity_is_aggregated_by_function_across_teams(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            {
+                "planning_mode": "capacity_check",
+                "planning_horizon": "month",
+                "calendar_year": 2026,
+                "month_index": 5,
+                "working_days": 20,
+                "holidays_days": 1,
+                "vacation_days": 2,
+                "sick_days": 1,
+                "focus_factor": 0.75,
+                "rd_org": {
+                    "country_profiles": [
+                        {
+                            "id": "us",
+                            "country_code": "US",
+                            "working_day_rules": {"workweek": "mon-fri"},
+                            "holiday_calendar_rules": {"dates": []},
+                            "vacation_days_per_employee": 18,
+                            "sick_days_per_employee": 8
+                        }
+                    ],
+                    "teams": [
+                        {
+                            "name": "Core Product",
+                            "members": [
+                                {
+                                    "id": "eng-1",
+                                    "function": "eng",
+                                    "seniority": "Senior",
+                                    "country_profile": "us"
+                                },
+                                {
+                                    "id": "qa-1",
+                                    "function": "qa",
+                                    "seniority": "Mid",
+                                    "capacity_percent": 0.5,
+                                    "country_profile": "us"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Platform",
+                            "members": [
+                                {
+                                    "id": "eng-2",
+                                    "function": "eng",
+                                    "seniority": "Mid",
+                                    "capacity_percent": 0.5,
+                                    "country_profile": "us"
+                                },
+                                {
+                                    "id": "ops-1",
+                                    "function": "devops",
+                                    "seniority": "Senior",
+                                    "country_profile": "us"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "roadmap": {"features": []}
+            },
+            load_defaults(),
+        )
+
+        capacities = _capacity_by_function(planning_input, load_defaults(), precision=2)
+        self.assertEqual(capacities, {"eng": 18.0, "qa": 6.0, "devops": 12.0})
+
+    def test_rd_org_capacity_by_function_uses_derived_availability(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            _load_raw_example("v2_rd_org_capacity_check.json"),
+            load_defaults(),
+        )
+
+        capacities = _capacity_by_function(planning_input, load_defaults(), precision=2)
+        self.assertEqual(capacities, {"eng": 44.41, "qa": 44.41, "devops": 22.21})
 
     def test_planner_rejects_planning_schedule_until_supported(self) -> None:
         planning_input = PlanningInput.from_dict(
