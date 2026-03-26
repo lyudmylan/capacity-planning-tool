@@ -32,6 +32,8 @@ class EvaluatedPlan:
     buffer_dev_days: float
     function_capacity_fit: dict[str, bool]
     bottleneck_functions: tuple[str, ...]
+    dependency_rules_pass: bool
+    dependency_violations: tuple[str, ...]
     feasibility: bool
     acceptable: bool
     goal_compliant: bool
@@ -437,10 +439,17 @@ def _evaluate_plan(
         demand_by_function,
         capacity_by_function,
     )
+    dependency_evaluation = _dependency_rule_evaluation(
+        planning_input,
+        demand_by_function,
+        capacity_by_function,
+        precision=precision,
+    )
     demand_dev_days = _demand_dev_days(list(delivered_features), precision=precision)
     utilization = _utilization(demand_dev_days, capacity_dev_days, precision=precision)
     buffer_dev_days = _buffer_dev_days(capacity_dev_days, demand_dev_days, precision=precision)
-    feasibility = all(function_capacity_fit.values())
+    dependency_rules_pass = dependency_evaluation.dependency_rules_pass
+    feasibility = all(function_capacity_fit.values()) and dependency_rules_pass
     business_goal_assessment = _build_business_goal_assessment(
         planning_input=planning_input,
         delivered_features=delivered_features,
@@ -460,6 +469,8 @@ def _evaluate_plan(
         buffer_dev_days=buffer_dev_days,
         function_capacity_fit=function_capacity_fit,
         bottleneck_functions=bottleneck_functions,
+        dependency_rules_pass=dependency_rules_pass,
+        dependency_violations=dependency_evaluation.dependency_violations,
         feasibility=feasibility,
         acceptable=acceptable,
         goal_compliant=goal_compliant,
@@ -522,6 +533,8 @@ def _serialize_evaluated_plan(
         "utilization": evaluated_plan.utilization,
         "function_capacity_fit": evaluated_plan.function_capacity_fit,
         "bottleneck_functions": list(evaluated_plan.bottleneck_functions),
+        "dependency_rules_pass": evaluated_plan.dependency_rules_pass,
+        "dependency_violations": list(evaluated_plan.dependency_violations),
         "feasibility": evaluated_plan.feasibility,
         "buffer_dev_days": evaluated_plan.buffer_dev_days,
         "acceptable": evaluated_plan.acceptable,
@@ -705,6 +718,7 @@ def _build_risks(
         )
     if baseline_buffer_dev_days < capacity_dev_days * defaults.buffer_target_ratio:
         risks.append("Buffer is below the target threshold, increasing delivery risk.")
+    risks.extend(selected_plan.dependency_violations)
     risks.extend(selected_plan.business_goal_assessment["hard_constraint_violations"])
     risks.extend(selected_plan.business_goal_assessment["soft_goal_violations"])
     return risks
@@ -717,6 +731,14 @@ def _build_suggestions(
     capacity_dev_days: float,
     defaults: DefaultsConfig,
 ) -> list[str]:
+    if not baseline_feasibility and not selected_plan.removed_features:
+        return [
+            (
+                "Adjust staffing, scope, or schedule policy assumptions to satisfy "
+                "planning constraints."
+            )
+        ]
+
     if not baseline_feasibility and selected_plan.removed_features:
         return [
             "Reduce scope using the recommended delivered feature set.",
@@ -757,6 +779,14 @@ def _build_tradeoff_summary(
             "The original roadmap fits within available capacity and satisfies the business goals."
         ]
 
+    if not baseline_feasibility and not selected_plan.removed_features:
+        return [
+            (
+                "The current roadmap does not satisfy the planning constraints for the selected "
+                "horizon."
+            )
+        ]
+
     summary = [
         (
             f"The original roadmap required {original_demand_dev_days} dev days "
@@ -789,34 +819,42 @@ def _build_tradeoff_summary(
 
 def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> dict[str, Any]:
     """Build a JSON-serializable planning result."""
-    if planning_input.planning_mode == "planning_schedule":
-        raise InputValidationError(
-            "planning_schedule is not supported by the current planner yet."
-        )
-
     precision = defaults.output_precision
     engineers = _expand_engineers(planning_input, defaults)
     feature_demands = tuple(_feature_demands(planning_input, defaults))
 
     capacity_dev_days = _capacity_dev_days(planning_input, engineers, precision=precision)
     capacity_by_function = _capacity_by_function(planning_input, defaults, precision=precision)
-    demand_dev_days = _demand_dev_days(list(feature_demands), precision=precision)
-    utilization = _utilization(demand_dev_days, capacity_dev_days, precision=precision)
-    buffer_dev_days = _buffer_dev_days(capacity_dev_days, demand_dev_days, precision=precision)
-    demand_by_function = _demand_by_function(list(feature_demands), precision=precision)
-    function_capacity_fit, bottleneck_functions = _function_capacity_fit(
-        demand_by_function,
-        capacity_by_function,
-    )
-    feasibility = all(function_capacity_fit.values())
-
-    selected_plan, evaluated_alternatives, agentic_iterations = _run_agentic_replanning_loop(
+    baseline_plan = _evaluate_plan(
         planning_input=planning_input,
+        delivered_features=feature_demands,
         all_feature_demands=feature_demands,
         capacity_dev_days=capacity_dev_days,
         capacity_by_function=capacity_by_function,
         defaults=defaults,
     )
+
+    demand_dev_days = baseline_plan.demand_dev_days
+    utilization = baseline_plan.utilization
+    buffer_dev_days = baseline_plan.buffer_dev_days
+    function_capacity_fit = baseline_plan.function_capacity_fit
+    bottleneck_functions = baseline_plan.bottleneck_functions
+    dependency_rules_pass = baseline_plan.dependency_rules_pass
+    dependency_violations = baseline_plan.dependency_violations
+    feasibility = baseline_plan.feasibility
+
+    if planning_input.planning_mode == "planning_schedule":
+        selected_plan = baseline_plan
+        evaluated_alternatives: list[dict[str, Any]] = []
+        agentic_iterations: list[dict[str, Any]] = []
+    else:
+        selected_plan, evaluated_alternatives, agentic_iterations = _run_agentic_replanning_loop(
+            planning_input=planning_input,
+            all_feature_demands=feature_demands,
+            capacity_dev_days=capacity_dev_days,
+            capacity_by_function=capacity_by_function,
+            defaults=defaults,
+        )
 
     return {
         "capacity_dev_days": capacity_dev_days,
@@ -824,6 +862,8 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
         "utilization": utilization,
         "function_capacity_fit": function_capacity_fit,
         "bottleneck_functions": list(bottleneck_functions),
+        "dependency_rules_pass": dependency_rules_pass,
+        "dependency_violations": list(dependency_violations),
         "feasibility": feasibility,
         "buffer_dev_days": buffer_dev_days,
         "delivered_features": _serialize_feature_list(
