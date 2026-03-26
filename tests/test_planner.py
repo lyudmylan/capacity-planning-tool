@@ -378,8 +378,12 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(len(planning_input.rd_org.teams), 1)
         self.assertEqual(len(planning_input.teams), 1)
         self.assertEqual(planning_input.teams[0].name, "Core Product")
+        team_roles = {
+            (role.role, role.seniority, len(role.members))
+            for role in planning_input.teams[0].roles
+        }
         self.assertEqual(
-            {(role.role, role.seniority, len(role.members)) for role in planning_input.teams[0].roles},
+            team_roles,
             {("eng", "Senior", 2), ("qa", "Mid", 1)},
         )
         self.assertEqual(planning_input.teams[0].roles[0].members[0].capacity_percent, 1.0)
