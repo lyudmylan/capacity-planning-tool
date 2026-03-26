@@ -589,6 +589,67 @@ class CountryProfile:
 
 
 @dataclass(frozen=True, slots=True)
+class PostDevMinRatio:
+    qa: float | None
+    devops: float | None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PostDevMinRatio:
+        unknown_keys = sorted(set(data) - {"qa", "devops"})
+        if unknown_keys:
+            raise InputValidationError(
+                "org_schedule_policies.post_dev_min_ratio contains unsupported keys: "
+                + ", ".join(unknown_keys)
+            )
+
+        return cls(
+            qa=(
+                None
+                if data.get("qa") is None
+                else _require_fraction(
+                    data.get("qa"),
+                    "org_schedule_policies.post_dev_min_ratio.qa",
+                )
+            ),
+            devops=(
+                None
+                if data.get("devops") is None
+                else _require_fraction(
+                    data.get("devops"),
+                    "org_schedule_policies.post_dev_min_ratio.devops",
+                )
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class OrgSchedulePolicies:
+    post_dev_min_ratio: PostDevMinRatio | None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OrgSchedulePolicies:
+        unknown_keys = sorted(set(data) - {"post_dev_min_ratio"})
+        if unknown_keys:
+            raise InputValidationError(
+                "org_schedule_policies contains unsupported keys: " + ", ".join(unknown_keys)
+            )
+
+        post_dev_min_ratio_value = data.get("post_dev_min_ratio")
+        return cls(
+            post_dev_min_ratio=(
+                None
+                if post_dev_min_ratio_value is None
+                else PostDevMinRatio.from_dict(
+                    _require_mapping(
+                        post_dev_min_ratio_value,
+                        "org_schedule_policies.post_dev_min_ratio",
+                    )
+                )
+            )
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class RdOrgTeam:
     name: str
     members: tuple[RdOrgMember, ...]
@@ -631,9 +692,12 @@ class RdOrgTeam:
 class RdOrg:
     country_profiles: tuple[CountryProfile, ...]
     teams: tuple[RdOrgTeam, ...]
+    org_schedule_policies: OrgSchedulePolicies | None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], defaults: DefaultsConfig) -> RdOrg:
+    def from_dict(
+        cls, data: dict[str, Any], defaults: DefaultsConfig, *, planning_mode: str
+    ) -> RdOrg:
         country_profiles = tuple(
             CountryProfile.from_dict(_require_mapping(profile, "country_profile"))
             for profile in _require_list(data.get("country_profiles"), "rd_org.country_profiles")
@@ -685,7 +749,27 @@ class RdOrg:
                 + ", ".join(unknown_country_profiles)
             )
 
-        return cls(country_profiles=country_profiles, teams=teams)
+        org_schedule_policies_value = data.get("org_schedule_policies")
+        if org_schedule_policies_value is not None and planning_mode != "planning_schedule":
+            raise InputValidationError(
+                "rd_org.org_schedule_policies is only supported for planning_schedule."
+            )
+        org_schedule_policies = (
+            None
+            if org_schedule_policies_value is None
+            else OrgSchedulePolicies.from_dict(
+                _require_mapping(
+                    org_schedule_policies_value,
+                    "rd_org.org_schedule_policies",
+                )
+            )
+        )
+
+        return cls(
+            country_profiles=country_profiles,
+            teams=teams,
+            org_schedule_policies=org_schedule_policies,
+        )
 
     def to_teams(self) -> tuple[Team, ...]:
         return tuple(team.to_team() for team in self.teams)
@@ -911,7 +995,11 @@ class PlanningInput:
             raise InputValidationError("One of rd_org or team_structure is required.")
 
         if rd_org_value is not None:
-            rd_org = RdOrg.from_dict(_require_mapping(rd_org_value, "rd_org"), defaults)
+            rd_org = RdOrg.from_dict(
+                _require_mapping(rd_org_value, "rd_org"),
+                defaults,
+                planning_mode=planning_mode,
+            )
             teams = rd_org.to_teams()
         else:
             rd_org = None

@@ -19,6 +19,12 @@
         "sick_days_per_employee": 8
       }
     ],
+    "org_schedule_policies": {
+      "post_dev_min_ratio": {
+        "qa": 0.4,
+        "devops": 0.4
+      }
+    },
     "teams": [
       {
         "name": "Core Product",

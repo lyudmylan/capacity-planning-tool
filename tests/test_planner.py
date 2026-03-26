@@ -1380,6 +1380,146 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(planning_input.features[0].estimates.eng, "S")
         self.assertEqual(planning_input.features[0].estimates.qa, "S")
         self.assertIsNone(planning_input.features[0].estimates.devops)
+        self.assertIsNotNone(planning_input.rd_org)
+        self.assertIsNotNone(planning_input.rd_org.org_schedule_policies)
+        self.assertIsNotNone(planning_input.rd_org.org_schedule_policies.post_dev_min_ratio)
+        self.assertEqual(planning_input.rd_org.org_schedule_policies.post_dev_min_ratio.qa, 0.4)
+        self.assertEqual(
+            planning_input.rd_org.org_schedule_policies.post_dev_min_ratio.devops,
+            0.4,
+        )
+
+    def test_capacity_check_rejects_org_schedule_policies(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "rd_org.org_schedule_policies is only supported for planning_schedule",
+        ):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "quarter",
+                    "calendar_year": 2026,
+                    "quarter_index": 2,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "us",
+                                "country_code": "US",
+                                "working_day_rules": {"workweek": "mon-fri"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8,
+                            }
+                        ],
+                        "org_schedule_policies": {
+                            "post_dev_min_ratio": {"qa": 0.4}
+                        },
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
+
+    def test_planning_schedule_rejects_invalid_post_dev_min_ratio_bounds(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "org_schedule_policies.post_dev_min_ratio.qa must be between 0 and 1",
+        ):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "planning_schedule",
+                    "planning_horizon": "sprint",
+                    "start_date": "2026-03-02",
+                    "end_date": "2026-03-13",
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"dates": ["2026-03-10"]},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8,
+                            }
+                        ],
+                        "org_schedule_policies": {
+                            "post_dev_min_ratio": {"qa": 1.2}
+                        },
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
+
+    def test_planning_schedule_rejects_unsupported_org_schedule_policy_keys(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "org_schedule_policies contains unsupported keys: staffing_strategy",
+        ):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "planning_schedule",
+                    "planning_horizon": "sprint",
+                    "start_date": "2026-03-02",
+                    "end_date": "2026-03-13",
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"dates": ["2026-03-10"]},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8,
+                            }
+                        ],
+                        "org_schedule_policies": {
+                            "staffing_strategy": "follow-the-sun"
+                        },
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
 
     def test_v2_function_estimates_capacity_check_example_parses(self) -> None:
         planning_input = PlanningInput.from_dict(
