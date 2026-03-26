@@ -30,6 +30,8 @@ class EvaluatedPlan:
     demand_dev_days: float
     utilization: float
     buffer_dev_days: float
+    function_capacity_fit: dict[str, bool]
+    bottleneck_functions: tuple[str, ...]
     feasibility: bool
     acceptable: bool
     goal_compliant: bool
@@ -199,6 +201,21 @@ def _capacity_dev_days(
     return _round_number(total_capacity, precision)
 
 
+def _function_capacity_fit(
+    demand_by_function: dict[str, float], capacity_by_function: dict[str, float]
+) -> tuple[dict[str, bool], tuple[str, ...]]:
+    capacity_fit = {
+        function_name: demand_by_function[function_name] <= capacity_by_function[function_name]
+        for function_name in SUPPORTED_ESTIMATE_FUNCTIONS
+    }
+    bottleneck_functions = tuple(
+        function_name
+        for function_name in SUPPORTED_ESTIMATE_FUNCTIONS
+        if not capacity_fit[function_name]
+    )
+    return capacity_fit, bottleneck_functions
+
+
 def _demand_dev_days(feature_demands: list[FeatureDemand], *, precision: int) -> float:
     return _round_number(sum(feature.demand_dev_days for feature in feature_demands), precision)
 
@@ -328,6 +345,7 @@ def _evaluate_plan(
     delivered_features: tuple[FeatureDemand, ...],
     all_feature_demands: tuple[FeatureDemand, ...],
     capacity_dev_days: float,
+    capacity_by_function: dict[str, float],
     defaults: DefaultsConfig,
 ) -> EvaluatedPlan:
     precision = defaults.output_precision
@@ -336,10 +354,15 @@ def _evaluate_plan(
         for feature in all_feature_demands
         if feature.original_index not in {item.original_index for item in delivered_features}
     )
+    demand_by_function = _demand_by_function(list(delivered_features), precision=precision)
+    function_capacity_fit, bottleneck_functions = _function_capacity_fit(
+        demand_by_function,
+        capacity_by_function,
+    )
     demand_dev_days = _demand_dev_days(list(delivered_features), precision=precision)
     utilization = _utilization(demand_dev_days, capacity_dev_days, precision=precision)
     buffer_dev_days = _buffer_dev_days(capacity_dev_days, demand_dev_days, precision=precision)
-    feasibility = demand_dev_days <= capacity_dev_days
+    feasibility = all(function_capacity_fit.values())
     business_goal_assessment = _build_business_goal_assessment(
         planning_input=planning_input,
         delivered_features=delivered_features,
@@ -357,6 +380,8 @@ def _evaluate_plan(
         demand_dev_days=demand_dev_days,
         utilization=utilization,
         buffer_dev_days=buffer_dev_days,
+        function_capacity_fit=function_capacity_fit,
+        bottleneck_functions=bottleneck_functions,
         feasibility=feasibility,
         acceptable=acceptable,
         goal_compliant=goal_compliant,
@@ -417,6 +442,8 @@ def _serialize_evaluated_plan(
         "capacity_dev_days": capacity_dev_days,
         "demand_dev_days": evaluated_plan.demand_dev_days,
         "utilization": evaluated_plan.utilization,
+        "function_capacity_fit": evaluated_plan.function_capacity_fit,
+        "bottleneck_functions": list(evaluated_plan.bottleneck_functions),
         "feasibility": evaluated_plan.feasibility,
         "buffer_dev_days": evaluated_plan.buffer_dev_days,
         "acceptable": evaluated_plan.acceptable,
@@ -443,6 +470,7 @@ def _run_agentic_replanning_loop(
     planning_input: PlanningInput,
     all_feature_demands: tuple[FeatureDemand, ...],
     capacity_dev_days: float,
+    capacity_by_function: dict[str, float],
     defaults: DefaultsConfig,
 ) -> tuple[EvaluatedPlan, list[dict[str, Any]], list[dict[str, Any]]]:
     precision = defaults.output_precision
@@ -456,6 +484,7 @@ def _run_agentic_replanning_loop(
         delivered_features=all_feature_demands,
         all_feature_demands=all_feature_demands,
         capacity_dev_days=capacity_dev_days,
+        capacity_by_function=capacity_by_function,
         defaults=defaults,
     )
     best_plan = current_plan
@@ -501,6 +530,7 @@ def _run_agentic_replanning_loop(
                 delivered_features=next_delivered,
                 all_feature_demands=all_feature_demands,
                 capacity_dev_days=capacity_dev_days,
+                capacity_by_function=capacity_by_function,
                 defaults=defaults,
             )
             evaluated_candidates.append((feature_to_remove, candidate_plan))
@@ -691,15 +721,22 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
     feature_demands = tuple(_feature_demands(planning_input, defaults))
 
     capacity_dev_days = _capacity_dev_days(planning_input, engineers, precision=precision)
+    capacity_by_function = _capacity_by_function(planning_input, defaults, precision=precision)
     demand_dev_days = _demand_dev_days(list(feature_demands), precision=precision)
     utilization = _utilization(demand_dev_days, capacity_dev_days, precision=precision)
     buffer_dev_days = _buffer_dev_days(capacity_dev_days, demand_dev_days, precision=precision)
-    feasibility = demand_dev_days <= capacity_dev_days
+    demand_by_function = _demand_by_function(list(feature_demands), precision=precision)
+    function_capacity_fit, bottleneck_functions = _function_capacity_fit(
+        demand_by_function,
+        capacity_by_function,
+    )
+    feasibility = all(function_capacity_fit.values())
 
     selected_plan, evaluated_alternatives, agentic_iterations = _run_agentic_replanning_loop(
         planning_input=planning_input,
         all_feature_demands=feature_demands,
         capacity_dev_days=capacity_dev_days,
+        capacity_by_function=capacity_by_function,
         defaults=defaults,
     )
 
@@ -707,6 +744,8 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
         "capacity_dev_days": capacity_dev_days,
         "demand_dev_days": demand_dev_days,
         "utilization": utilization,
+        "function_capacity_fit": function_capacity_fit,
+        "bottleneck_functions": list(bottleneck_functions),
         "feasibility": feasibility,
         "buffer_dev_days": buffer_dev_days,
         "delivered_features": _serialize_feature_list(

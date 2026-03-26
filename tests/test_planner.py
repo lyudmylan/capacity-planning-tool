@@ -101,6 +101,11 @@ class PlannerTests(unittest.TestCase):
         result = plan_capacity(planning_input, load_defaults())
         self.assertEqual(result["capacity_dev_days"], 8.0)
         self.assertEqual(result["demand_dev_days"], 8.0)
+        self.assertEqual(
+            result["function_capacity_fit"],
+            {"eng": True, "qa": True, "devops": True},
+        )
+        self.assertEqual(result["bottleneck_functions"], [])
         self.assertEqual(result["business_goal_assessment"]["must_deliver_feature_ids"], [])
 
     def test_invalid_unavailable_days_raise_validation_error(self) -> None:
@@ -1905,6 +1910,172 @@ class PlannerTests(unittest.TestCase):
 
         capacities = _capacity_by_function(planning_input, load_defaults(), precision=2)
         self.assertEqual(capacities, {"eng": 44.41, "qa": 44.41, "devops": 22.21})
+
+    def test_capacity_check_feasibility_requires_all_functions_to_fit(self) -> None:
+        result = plan_capacity(
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 5,
+                    "working_days": 20,
+                    "holidays_days": 0,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "us",
+                                "country_code": "US",
+                                "working_day_rules": {"workweek": "mon-fri"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us"
+                                    },
+                                    {
+                                        "id": "qa-1",
+                                        "function": "qa",
+                                        "seniority": "Mid",
+                                        "capacity_percent": 0.25,
+                                        "country_profile": "us"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {
+                        "features": [
+                            {
+                                "id": "must-ship",
+                                "name": "QA Bottleneck Feature",
+                                "estimates": {
+                                    "eng": "M",
+                                    "qa": "M"
+                                },
+                                "priority": "High"
+                            }
+                        ]
+                    },
+                    "business_goals": {
+                        "must_deliver_feature_ids": ["must-ship"]
+                    }
+                },
+                load_defaults(),
+            ),
+            load_defaults(),
+        )
+
+        self.assertFalse(result["feasibility"])
+        self.assertEqual(
+            result["function_capacity_fit"],
+            {"eng": True, "qa": False, "devops": True},
+        )
+        self.assertEqual(result["bottleneck_functions"], ["qa"])
+        self.assertFalse(result["selected_plan"]["feasibility"])
+        self.assertEqual(
+            result["selected_plan"]["function_capacity_fit"],
+            {"eng": True, "qa": False, "devops": True},
+        )
+        self.assertEqual(result["selected_plan"]["bottleneck_functions"], ["qa"])
+
+    def test_replanning_uses_function_capacity_fit_to_select_feasible_plan(self) -> None:
+        result = plan_capacity(
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 5,
+                    "working_days": 20,
+                    "holidays_days": 0,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "us",
+                                "country_code": "US",
+                                "working_day_rules": {"workweek": "mon-fri"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us"
+                                    },
+                                    {
+                                        "id": "qa-1",
+                                        "function": "qa",
+                                        "seniority": "Mid",
+                                        "capacity_percent": 0.25,
+                                        "country_profile": "us"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {
+                        "features": [
+                            {
+                                "id": "feature-a",
+                                "name": "Keep Me",
+                                "estimates": {
+                                    "eng": "S"
+                                },
+                                "priority": "High"
+                            },
+                            {
+                                "id": "feature-b",
+                                "name": "QA Heavy",
+                                "estimates": {
+                                    "qa": "M"
+                                },
+                                "priority": "Low"
+                            }
+                        ]
+                    }
+                },
+                load_defaults(),
+            ),
+            load_defaults(),
+        )
+
+        self.assertFalse(result["feasibility"])
+        self.assertEqual(result["bottleneck_functions"], ["qa"])
+        self.assertTrue(result["selected_plan"]["feasibility"])
+        self.assertEqual(
+            result["selected_plan"]["function_capacity_fit"],
+            {"eng": True, "qa": True, "devops": True},
+        )
+        self.assertEqual(result["selected_plan"]["bottleneck_functions"], [])
+        self.assertEqual(
+            [feature["name"] for feature in result["deferred_features"]],
+            [],
+        )
+        self.assertEqual(
+            [feature["name"] for feature in result["dropped_features"]],
+            ["QA Heavy"],
+        )
 
     def test_planner_rejects_planning_schedule_until_supported(self) -> None:
         planning_input = PlanningInput.from_dict(
