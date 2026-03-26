@@ -1722,6 +1722,54 @@ class PlannerTests(unittest.TestCase):
             {"eng": 16.0, "qa": 0.0, "devops": 0.0},
         )
 
+    def test_legacy_feature_size_falls_back_for_missing_estimates_eng(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            {
+                "planning_mode": "capacity_check",
+                "planning_horizon": "month",
+                "calendar_year": 2026,
+                "month_index": 5,
+                "working_days": 20,
+                "holidays_days": 0,
+                "vacation_days": 0,
+                "sick_days": 0,
+                "team_structure": {
+                    "teams": [
+                        {
+                            "name": "API",
+                            "roles": [
+                                {
+                                    "role": "Backend Engineer",
+                                    "seniority": "Senior",
+                                    "count": 1
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "roadmap": {
+                    "features": [
+                        {
+                            "name": "Mixed Legacy And QA",
+                            "size": "M",
+                            "estimates": {
+                                "qa": "S"
+                            },
+                            "priority": "Medium"
+                        }
+                    ]
+                }
+            },
+            load_defaults(),
+        )
+
+        feature_demand = _feature_demands(planning_input, load_defaults())[0]
+        self.assertEqual(feature_demand.demand_dev_days, 16.0)
+        self.assertEqual(
+            feature_demand.demand_by_function,
+            {"eng": 16.0, "qa": 8.0, "devops": 0.0},
+        )
+
     def test_total_demand_is_calculated_by_function(self) -> None:
         planning_input = PlanningInput.from_dict(
             {
