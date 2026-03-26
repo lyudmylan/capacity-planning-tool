@@ -250,6 +250,36 @@ class PlannerTests(unittest.TestCase):
                 load_defaults(),
             )
 
+    def test_calendar_year_above_python_date_range_raises_validation_error(self) -> None:
+        with self.assertRaisesRegex(ValueError, "calendar_year must be less than or equal to 9999"):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "year",
+                    "calendar_year": 10000,
+                    "working_days": 220,
+                    "holidays_days": 10,
+                    "vacation_days": 20,
+                    "sick_days": 5,
+                    "team_structure": {
+                        "teams": [
+                            {
+                                "name": "API",
+                                "roles": [
+                                    {
+                                        "role": "Backend Engineer",
+                                        "seniority": "Senior",
+                                        "count": 1,
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
+
     def test_planning_period_is_derived_for_each_horizon(self) -> None:
         defaults = load_defaults()
         base_payload = {
@@ -329,6 +359,279 @@ class PlannerTests(unittest.TestCase):
                     planning_input.planning_period.total_calendar_days,
                     expected_days,
                 )
+
+    def test_rd_org_can_derive_working_and_holiday_days_from_country_profile(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            {
+                "planning_mode": "capacity_check",
+                "planning_horizon": "month",
+                "calendar_year": 2026,
+                "month_index": 1,
+                "vacation_days": 0,
+                "sick_days": 0,
+                "rd_org": {
+                    "country_profiles": [
+                        {
+                            "id": "us",
+                            "country_code": "US",
+                            "working_day_rules": {"workweek": "mon-fri"},
+                            "holiday_calendar_rules": {
+                                "dates": ["2026-01-01", "2026-01-17", "2026-01-19"]
+                            },
+                            "vacation_days_per_employee": 15,
+                            "sick_days_per_employee": 8,
+                        }
+                    ],
+                    "teams": [
+                        {
+                            "name": "Core Product",
+                            "members": [
+                                {
+                                    "id": "eng-1",
+                                    "function": "eng",
+                                    "seniority": "Senior",
+                                    "country_profile": "us",
+                                }
+                            ],
+                        }
+                    ],
+                },
+                "roadmap": {"features": []},
+            },
+            load_defaults(),
+        )
+
+        self.assertEqual(planning_input.working_days, 22.0)
+        self.assertEqual(planning_input.holidays_days, 2.0)
+
+    def test_rd_org_can_derive_days_for_sprint_window(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            {
+                "planning_mode": "capacity_check",
+                "planning_horizon": "sprint",
+                "start_date": "2026-03-01",
+                "end_date": "2026-03-07",
+                "vacation_days": 0,
+                "sick_days": 0,
+                "rd_org": {
+                    "country_profiles": [
+                        {
+                            "id": "il",
+                            "country_code": "IL",
+                            "working_day_rules": {"workweek": "sun-thu"},
+                            "holiday_calendar_rules": {"dates": ["2026-03-03", "2026-03-06"]},
+                            "vacation_days_per_employee": 18,
+                            "sick_days_per_employee": 8,
+                        }
+                    ],
+                    "teams": [
+                        {
+                            "name": "Core Product",
+                            "members": [
+                                {
+                                    "id": "eng-1",
+                                    "function": "eng",
+                                    "seniority": "Senior",
+                                    "country_profile": "il",
+                                }
+                            ],
+                        }
+                    ],
+                },
+                "roadmap": {"features": []},
+            },
+            load_defaults(),
+        )
+
+        self.assertEqual(planning_input.working_days, 5.0)
+        self.assertEqual(planning_input.holidays_days, 1.0)
+
+    def test_rd_org_derivation_rejects_unsupported_workweek(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "Unsupported country_profile.working_day_rules.workweek",
+        ):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 1,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "uk",
+                                "country_code": "GB",
+                                "working_day_rules": {"workweek": "mon-thu"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 20,
+                                "sick_days_per_employee": 6,
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "uk",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_derivation_rejects_unsupported_named_holiday_calendar(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "Unsupported country_profile.holiday_calendar_rules.calendar",
+        ):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "quarter",
+                    "calendar_year": 2026,
+                    "quarter_index": 2,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"calendar": "israeli"},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8,
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_derivation_rejects_mixed_country_day_counts(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "explicit working_days and holidays_days are required",
+        ):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 1,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "us",
+                                "country_code": "US",
+                                "working_day_rules": {"workweek": "mon-fri"},
+                                "holiday_calendar_rules": {"dates": ["2026-01-19"]},
+                                "vacation_days_per_employee": 15,
+                                "sick_days_per_employee": 8,
+                            },
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8,
+                            },
+                        ],
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us",
+                                    },
+                                    {
+                                        "id": "eng-2",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il",
+                                    },
+                                ],
+                            }
+                        ],
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_derivation_requires_working_and_holiday_days_together_when_manual(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "working_days and holidays_days must be provided together",
+        ):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 1,
+                    "working_days": 22,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "us",
+                                "country_code": "US",
+                                "working_day_rules": {"workweek": "mon-fri"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 15,
+                                "sick_days_per_employee": 8,
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
 
     def test_sprint_rejects_non_sprint_selectors(self) -> None:
         with self.assertRaises(ValueError):

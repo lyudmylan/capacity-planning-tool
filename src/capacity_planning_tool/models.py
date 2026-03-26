@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from calendar import monthrange
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 
@@ -15,6 +15,10 @@ class InputValidationError(ValueError):
 SUPPORTED_PLANNING_HORIZONS = {"year", "half_year", "quarter", "month", "sprint"}
 SUPPORTED_PLANNING_MODES = {"capacity_check", "planning_schedule"}
 SUPPORTED_MEMBER_FUNCTIONS = {"eng", "qa", "devops"}
+SUPPORTED_WORKWEEKS = {
+    "mon-fri": {0, 1, 2, 3, 4},
+    "sun-thu": {6, 0, 1, 2, 3},
+}
 SUPPORTED_FEATURE_SIZES = {"XS", "S", "M", "L"}
 SUPPORTED_PRIORITIES = {"Critical", "High", "Medium", "Low"}
 SUPPORTED_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
@@ -82,6 +86,13 @@ def _require_positive_integer(value: Any, field_name: str) -> int:
         raise InputValidationError(f"{field_name} must be an integer.")
     if parsed_value < 1:
         raise InputValidationError(f"{field_name} must be at least 1.")
+    return parsed_value
+
+
+def _require_calendar_year(value: Any, field_name: str) -> int:
+    parsed_value = _require_positive_integer(value, field_name)
+    if parsed_value > 9999:
+        raise InputValidationError(f"{field_name} must be less than or equal to 9999.")
     return parsed_value
 
 
@@ -154,7 +165,7 @@ def _parse_period_selectors(
         )
 
     calendar_year = (
-        _require_positive_integer(data.get("calendar_year"), "calendar_year")
+        _require_calendar_year(data.get("calendar_year"), "calendar_year")
         if "calendar_year" in required_fields
         else None
     )
@@ -678,6 +689,16 @@ class RdOrg:
     def to_teams(self) -> tuple[Team, ...]:
         return tuple(team.to_team() for team in self.teams)
 
+    def referenced_country_profiles(self) -> tuple[CountryProfile, ...]:
+        referenced_ids = {
+            member.country_profile
+            for team in self.teams
+            for member in team.members
+        }
+        return tuple(
+            profile for profile in self.country_profiles if profile.id in referenced_ids
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class Feature:
@@ -848,8 +869,21 @@ class PlanningInput:
                 "feature ids or names must be unique so business goals can reference them safely."
             )
 
-        working_days = _require_non_negative_number(data.get("working_days"), "working_days")
-        holidays_days = _require_non_negative_number(data.get("holidays_days"), "holidays_days")
+        working_days_value = data.get("working_days")
+        holidays_days_value = data.get("holidays_days")
+        if (working_days_value is None) != (holidays_days_value is None):
+            raise InputValidationError(
+                "working_days and holidays_days must be provided together or omitted together."
+            )
+        if working_days_value is None:
+            if rd_org is None:
+                raise InputValidationError(
+                    "working_days and holidays_days are required when rd_org is not provided."
+                )
+            working_days, holidays_days = _derive_rd_org_day_counts(rd_org, planning_period)
+        else:
+            working_days = _require_non_negative_number(working_days_value, "working_days")
+            holidays_days = _require_non_negative_number(holidays_days_value, "holidays_days")
         vacation_days = _require_non_negative_number(data.get("vacation_days"), "vacation_days")
         sick_days = _require_non_negative_number(data.get("sick_days"), "sick_days")
 
@@ -894,6 +928,73 @@ class PlanningInput:
             features=features,
             business_goals=business_goals,
         )
+
+
+def _parse_holiday_dates(holiday_calendar_rules: dict[str, Any]) -> set[date]:
+    if "dates" in holiday_calendar_rules:
+        raw_dates = _require_list(
+            holiday_calendar_rules.get("dates"),
+            "country_profile.holiday_calendar_rules.dates",
+        )
+        return {
+            _require_iso_date(raw_date, "country_profile.holiday_calendar_rules.dates item")
+            for raw_date in raw_dates
+        }
+
+    calendar_rule = holiday_calendar_rules.get("calendar")
+    if calendar_rule is None or calendar_rule == "none":
+        return set()
+    if not isinstance(calendar_rule, str):
+        raise InputValidationError(
+            "country_profile.holiday_calendar_rules.calendar must be a string."
+        )
+    raise InputValidationError(
+        "Unsupported country_profile.holiday_calendar_rules.calendar for derivation: "
+        f"{calendar_rule}."
+    )
+
+
+def _derive_country_profile_day_counts(
+    country_profile: CountryProfile, planning_period: PlanningPeriod
+) -> tuple[float, float]:
+    workweek_name = _require_string(
+        country_profile.working_day_rules.get("workweek"),
+        "country_profile.working_day_rules.workweek",
+    )
+    workweek = SUPPORTED_WORKWEEKS.get(workweek_name)
+    if workweek is None:
+        raise InputValidationError(
+            "Unsupported country_profile.working_day_rules.workweek for derivation: "
+            f"{workweek_name}."
+        )
+
+    holiday_dates = _parse_holiday_dates(country_profile.holiday_calendar_rules)
+    working_days = 0
+    holidays_days = 0
+    current_date = planning_period.start_date
+    while current_date <= planning_period.end_date:
+        if current_date.weekday() in workweek:
+            working_days += 1
+            if current_date in holiday_dates:
+                holidays_days += 1
+        current_date += timedelta(days=1)
+    return float(working_days), float(holidays_days)
+
+
+def _derive_rd_org_day_counts(
+    rd_org: RdOrg, planning_period: PlanningPeriod
+) -> tuple[float, float]:
+    derived_counts = {
+        _derive_country_profile_day_counts(profile, planning_period)
+        for profile in rd_org.referenced_country_profiles()
+    }
+    if len(derived_counts) != 1:
+        raise InputValidationError(
+            "rd_org country profiles produce different derived working_days/holidays_days; "
+            "explicit working_days and holidays_days are required until mixed-country pooled "
+            "capacity is supported."
+        )
+    return next(iter(derived_counts))
 
 
 @dataclass(frozen=True, slots=True)
