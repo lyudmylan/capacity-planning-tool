@@ -1,0 +1,76 @@
+{
+  "planning_mode": "capacity_check",
+  "planning_horizon": "quarter",
+  "calendar_year": 2026,
+  "quarter_index": 2,
+  "focus_factor": 0.8,
+  "rd_org": {
+    "country_profiles": [
+      {
+        "id": "us",
+        "country_code": "US",
+        "working_day_rules": {
+          "workweek": "mon-fri"
+        },
+        "holiday_calendar_rules": {
+          "dates": ["2026-04-27", "2026-05-25", "2026-06-19"]
+        },
+        "vacation_days_per_employee": 18,
+        "sick_days_per_employee": 8
+      }
+    ],
+    "teams": [
+      {
+        "name": "Core Product",
+        "members": [
+          {
+            "id": "eng-1",
+            "function": "eng",
+            "seniority": "Senior",
+            "country_profile": "us"
+          },
+          {
+            "id": "eng-2",
+            "function": "eng",
+            "seniority": "Mid",
+            "country_profile": "us"
+          },
+          {
+            "id": "qa-1",
+            "function": "qa",
+            "seniority": "Mid",
+            "country_profile": "us"
+          },
+          {
+            "id": "ops-1",
+            "function": "devops",
+            "seniority": "Senior",
+            "country_profile": "us"
+          }
+        ]
+      }
+    ]
+  },
+  "roadmap": {
+    "features": [
+      {
+        "id": "feature-1",
+        "name": "Cross-Functional Launch",
+        "estimates": {
+          "eng": "L",
+          "qa": "M",
+          "devops": "S"
+        },
+        "priority": "High"
+      },
+      {
+        "id": "feature-2",
+        "name": "Engineering Cleanup",
+        "estimates": {
+          "eng": "S"
+        },
+        "priority": "Medium"
+      }
+    ]
+  }
+}

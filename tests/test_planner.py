@@ -1371,6 +1371,32 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(planning_input.features[0].estimates.qa, "S")
         self.assertIsNone(planning_input.features[0].estimates.devops)
 
+    def test_v2_function_estimates_capacity_check_example_parses(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            _load_raw_example("v2_function_estimates_capacity_check.json"),
+            load_defaults(),
+        )
+
+        self.assertEqual(planning_input.planning_mode, "capacity_check")
+        self.assertEqual(planning_input.planning_horizon, "quarter")
+        self.assertEqual(len(planning_input.features), 2)
+
+        first_feature = planning_input.features[0]
+        second_feature = planning_input.features[1]
+
+        self.assertIsNotNone(first_feature.estimates)
+        self.assertEqual(first_feature.estimates.eng, "L")
+        self.assertEqual(first_feature.estimates.qa, "M")
+        self.assertEqual(first_feature.estimates.devops, "S")
+
+        self.assertIsNotNone(second_feature.estimates)
+        self.assertEqual(second_feature.estimates.eng, "S")
+        self.assertIsNone(second_feature.estimates.qa)
+        self.assertIsNone(second_feature.estimates.devops)
+
+        totals = _demand_by_function(_feature_demands(planning_input, load_defaults()), precision=2)
+        self.assertEqual(totals, {"eng": 32.0, "qa": 16.0, "devops": 8.0})
+
     def test_feature_estimates_parse_with_legacy_eng_size(self) -> None:
         planning_input = PlanningInput.from_dict(
             {
