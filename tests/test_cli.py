@@ -50,6 +50,13 @@ class CliTests(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertEqual(completed.stderr, "")
         self.assertIn("capacity_dev_days", result)
+        self.assertIn("function_capacity_fit", result)
+        self.assertIn("bottleneck_functions", result)
+        self.assertEqual(
+            result["function_capacity_fit"],
+            {"eng": True, "qa": True, "devops": True},
+        )
+        self.assertEqual(result["bottleneck_functions"], [])
 
     def test_cli_accepts_v2_function_estimates_capacity_check_example(self) -> None:
         input_path = PROJECT_ROOT / "examples" / "v2_function_estimates_capacity_check.json"
@@ -67,6 +74,9 @@ class CliTests(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertEqual(completed.stderr, "")
         self.assertIn("capacity_dev_days", result)
+        self.assertIn("selected_plan", result)
+        self.assertIn("function_capacity_fit", result)
+        self.assertEqual(set(result["function_capacity_fit"]), {"eng", "qa", "devops"})
 
     def test_cli_accepts_v2_rd_org_month_auto_capacity_check_example(self) -> None:
         input_path = PROJECT_ROOT / "examples" / "v2_rd_org_month_auto_capacity_check.json"
