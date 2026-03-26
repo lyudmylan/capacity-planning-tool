@@ -50,7 +50,10 @@
       {
         "id": "feature-1",
         "name": "Schedule Validation",
-        "size": "S",
+        "estimates": {
+          "eng": "S",
+          "qa": "S"
+        },
         "priority": "High"
       }
     ]
