@@ -93,6 +93,12 @@ def _feature_demands(
         if feature.estimates is not None:
             for function_name in SUPPORTED_ESTIMATE_FUNCTIONS:
                 size = getattr(feature.estimates, function_name)
+                if (
+                    function_name == "eng"
+                    and size is None
+                    and feature.size is not None
+                ):
+                    size = feature.size
                 if size is None:
                     continue
                 multiplier = defaults.feature_size_multipliers[size]
