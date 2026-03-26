@@ -92,9 +92,19 @@ def _require_iso_date(value: Any, field_name: str) -> date:
         raise InputValidationError(f"{field_name} must be a valid ISO date.") from exc
 
 
+@dataclass(frozen=True, slots=True)
+class PeriodSelectors:
+    calendar_year: int | None
+    half_year_index: int | None
+    quarter_index: int | None
+    month_index: int | None
+    start_date: date | None
+    end_date: date | None
+
+
 def _parse_period_selectors(
     data: dict[str, Any], planning_horizon: str
-) -> dict[str, int | date | None]:
+) -> PeriodSelectors:
     selector_fields = {
         "calendar_year",
         "half_year_index",
@@ -167,14 +177,14 @@ def _parse_period_selectors(
     if start_date is not None and end_date is not None and end_date < start_date:
         raise InputValidationError("end_date must be greater than or equal to start_date.")
 
-    return {
-        "calendar_year": calendar_year,
-        "half_year_index": half_year_index,
-        "quarter_index": quarter_index,
-        "month_index": month_index,
-        "start_date": start_date,
-        "end_date": end_date,
-    }
+    return PeriodSelectors(
+        calendar_year=calendar_year,
+        half_year_index=half_year_index,
+        quarter_index=quarter_index,
+        month_index=month_index,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -787,12 +797,12 @@ class PlanningInput:
         return cls(
             planning_mode=planning_mode,
             planning_horizon=planning_horizon,
-            calendar_year=period_selectors["calendar_year"],
-            half_year_index=period_selectors["half_year_index"],
-            quarter_index=period_selectors["quarter_index"],
-            month_index=period_selectors["month_index"],
-            start_date=period_selectors["start_date"],
-            end_date=period_selectors["end_date"],
+            calendar_year=period_selectors.calendar_year,
+            half_year_index=period_selectors.half_year_index,
+            quarter_index=period_selectors.quarter_index,
+            month_index=period_selectors.month_index,
+            start_date=period_selectors.start_date,
+            end_date=period_selectors.end_date,
             working_days=working_days,
             holidays_days=holidays_days,
             vacation_days=vacation_days,
