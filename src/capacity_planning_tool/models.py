@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -102,6 +103,21 @@ class PeriodSelectors:
     end_date: date | None
 
 
+@dataclass(frozen=True, slots=True)
+class PlanningPeriod:
+    start_date: date
+    end_date: date
+    total_calendar_days: int
+
+
+def _planning_period_from_dates(start_date: date, end_date: date) -> PlanningPeriod:
+    return PlanningPeriod(
+        start_date=start_date,
+        end_date=end_date,
+        total_calendar_days=(end_date - start_date).days + 1,
+    )
+
+
 def _parse_period_selectors(
     data: dict[str, Any], planning_horizon: str
 ) -> PeriodSelectors:
@@ -184,6 +200,66 @@ def _parse_period_selectors(
         month_index=month_index,
         start_date=start_date,
         end_date=end_date,
+    )
+
+
+def _derive_planning_period(
+    planning_horizon: str, period_selectors: PeriodSelectors
+) -> PlanningPeriod:
+    if planning_horizon == "year":
+        assert period_selectors.calendar_year is not None
+        return _planning_period_from_dates(
+            date(period_selectors.calendar_year, 1, 1),
+            date(period_selectors.calendar_year, 12, 31),
+        )
+
+    if planning_horizon == "half_year":
+        assert period_selectors.calendar_year is not None
+        assert period_selectors.half_year_index is not None
+        start_month = 1 if period_selectors.half_year_index == 1 else 7
+        end_month = start_month + 5
+        return _planning_period_from_dates(
+            date(period_selectors.calendar_year, start_month, 1),
+            date(
+                period_selectors.calendar_year,
+                end_month,
+                monthrange(period_selectors.calendar_year, end_month)[1],
+            ),
+        )
+
+    if planning_horizon == "quarter":
+        assert period_selectors.calendar_year is not None
+        assert period_selectors.quarter_index is not None
+        start_month = ((period_selectors.quarter_index - 1) * 3) + 1
+        end_month = start_month + 2
+        return _planning_period_from_dates(
+            date(period_selectors.calendar_year, start_month, 1),
+            date(
+                period_selectors.calendar_year,
+                end_month,
+                monthrange(period_selectors.calendar_year, end_month)[1],
+            ),
+        )
+
+    if planning_horizon == "month":
+        assert period_selectors.calendar_year is not None
+        assert period_selectors.month_index is not None
+        return _planning_period_from_dates(
+            date(period_selectors.calendar_year, period_selectors.month_index, 1),
+            date(
+                period_selectors.calendar_year,
+                period_selectors.month_index,
+                monthrange(
+                    period_selectors.calendar_year, period_selectors.month_index
+                )[1],
+            ),
+        )
+
+    assert period_selectors.start_date is not None
+    assert period_selectors.end_date is not None
+    return _planning_period_from_dates(
+        period_selectors.start_date,
+        period_selectors.end_date,
     )
 
 
@@ -703,6 +779,7 @@ class PlanningInput:
     month_index: int | None
     start_date: date | None
     end_date: date | None
+    planning_period: PlanningPeriod
     working_days: float
     holidays_days: float
     vacation_days: float
@@ -728,6 +805,7 @@ class PlanningInput:
                 f"planning_horizon must be one of {sorted(SUPPORTED_PLANNING_HORIZONS)}."
             )
         period_selectors = _parse_period_selectors(data, planning_horizon)
+        planning_period = _derive_planning_period(planning_horizon, period_selectors)
 
         focus_factor = _require_fraction(
             data.get("focus_factor", defaults.focus_factor_default), "focus_factor"
@@ -803,6 +881,7 @@ class PlanningInput:
             month_index=period_selectors.month_index,
             start_date=period_selectors.start_date,
             end_date=period_selectors.end_date,
+            planning_period=planning_period,
             working_days=working_days,
             holidays_days=holidays_days,
             vacation_days=vacation_days,
