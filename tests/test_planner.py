@@ -1390,6 +1390,23 @@ class PlannerTests(unittest.TestCase):
             0.4,
         )
 
+    def test_v2_planning_schedule_dependency_only_example_parses(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            _load_raw_example("v2_rd_org_planning_schedule_dependency_only.json"),
+            load_defaults(),
+        )
+
+        self.assertEqual(planning_input.planning_mode, "planning_schedule")
+        self.assertEqual(planning_input.working_days, 10.0)
+        self.assertEqual(planning_input.holidays_days, 0.0)
+        self.assertEqual(planning_input.vacation_days, 0.0)
+        self.assertEqual(planning_input.sick_days, 0.0)
+        self.assertIsNotNone(planning_input.rd_org)
+        self.assertIsNotNone(planning_input.rd_org.org_schedule_policies)
+        self.assertIsNotNone(planning_input.rd_org.org_schedule_policies.post_dev_min_ratio)
+        self.assertEqual(planning_input.rd_org.org_schedule_policies.post_dev_min_ratio.qa, 0.4)
+        self.assertIsNone(planning_input.rd_org.org_schedule_policies.post_dev_min_ratio.devops)
+
     def test_capacity_check_rejects_org_schedule_policies(self) -> None:
         with self.assertRaisesRegex(
             ValueError,
@@ -2374,78 +2391,7 @@ class PlannerTests(unittest.TestCase):
     def test_planning_schedule_can_fail_due_to_dependency_pressure_only(self) -> None:
         result = plan_capacity(
             PlanningInput.from_dict(
-                {
-                    "planning_mode": "planning_schedule",
-                    "planning_horizon": "sprint",
-                    "start_date": "2026-03-02",
-                    "end_date": "2026-03-13",
-                    "working_days": 10,
-                    "holidays_days": 0,
-                    "vacation_days": 0,
-                    "sick_days": 0,
-                    "focus_factor": 1.0,
-                    "rd_org": {
-                        "country_profiles": [
-                            {
-                                "id": "il",
-                                "country_code": "IL",
-                                "working_day_rules": {"workweek": "sun-thu"},
-                                "holiday_calendar_rules": {"dates": []},
-                                "vacation_days_per_employee": 18,
-                                "sick_days_per_employee": 8
-                            }
-                        ],
-                        "org_schedule_policies": {
-                            "post_dev_min_ratio": {
-                                "qa": 0.4
-                            }
-                        },
-                        "teams": [
-                            {
-                                "name": "Core Product",
-                                "members": [
-                                    {
-                                        "id": "eng-1",
-                                        "function": "eng",
-                                        "seniority": "Senior",
-                                        "country_profile": "il"
-                                    },
-                                    {
-                                        "id": "eng-2",
-                                        "function": "eng",
-                                        "seniority": "Mid",
-                                        "country_profile": "il"
-                                    },
-                                    {
-                                        "id": "eng-3",
-                                        "function": "eng",
-                                        "seniority": "Mid",
-                                        "country_profile": "il"
-                                    },
-                                    {
-                                        "id": "qa-1",
-                                        "function": "qa",
-                                        "seniority": "Mid",
-                                        "country_profile": "il"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    "roadmap": {
-                        "features": [
-                            {
-                                "id": "feature-1",
-                                "name": "Dependency Pressure",
-                                "estimates": {
-                                    "eng": "L",
-                                    "qa": "S"
-                                },
-                                "priority": "High"
-                            }
-                        ]
-                    }
-                },
+                _load_raw_example("v2_rd_org_planning_schedule_dependency_only.json"),
                 load_defaults(),
             ),
             load_defaults(),
