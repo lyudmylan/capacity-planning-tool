@@ -633,6 +633,166 @@ class PlannerTests(unittest.TestCase):
                 load_defaults(),
             )
 
+    def test_rd_org_can_prorate_vacation_and_sick_days_by_horizon(self) -> None:
+        defaults = load_defaults()
+        base_payload = {
+            "planning_mode": "capacity_check",
+            "rd_org": {
+                "country_profiles": [
+                    {
+                        "id": "us",
+                        "country_code": "US",
+                        "working_day_rules": {"workweek": "mon-fri"},
+                        "holiday_calendar_rules": {"dates": []},
+                        "vacation_days_per_employee": 24,
+                        "sick_days_per_employee": 12,
+                    }
+                ],
+                "teams": [
+                    {
+                        "name": "Core Product",
+                        "members": [
+                            {
+                                "id": "eng-1",
+                                "function": "eng",
+                                "seniority": "Senior",
+                                "country_profile": "us",
+                            }
+                        ],
+                    }
+                ],
+            },
+            "roadmap": {"features": []},
+        }
+        scenarios = [
+            ("year", {"calendar_year": 2026}, 1.0),
+            ("half_year", {"calendar_year": 2026, "half_year_index": 2}, 184 / 365),
+            ("quarter", {"calendar_year": 2026, "quarter_index": 2}, 91 / 365),
+            ("month", {"calendar_year": 2026, "month_index": 2}, 28 / 365),
+            (
+                "sprint",
+                {"start_date": "2026-03-01", "end_date": "2026-03-14"},
+                14 / 365,
+            ),
+        ]
+
+        for planning_horizon, selectors, expected_ratio in scenarios:
+            with self.subTest(planning_horizon=planning_horizon):
+                planning_input = PlanningInput.from_dict(
+                    {
+                        **base_payload,
+                        "planning_horizon": planning_horizon,
+                        **selectors,
+                    },
+                    defaults,
+                )
+
+                self.assertAlmostEqual(planning_input.vacation_days, 24 * expected_ratio)
+                self.assertAlmostEqual(planning_input.sick_days, 12 * expected_ratio)
+
+    def test_rd_org_leave_proration_rejects_mixed_country_allowances(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "explicit vacation_days and sick_days are required",
+        ):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 1,
+                    "working_days": 22,
+                    "holidays_days": 0,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "us-a",
+                                "country_code": "US",
+                                "working_day_rules": {"workweek": "mon-fri"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 15,
+                                "sick_days_per_employee": 8,
+                            },
+                            {
+                                "id": "us-b",
+                                "country_code": "US",
+                                "working_day_rules": {"workweek": "mon-fri"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 20,
+                                "sick_days_per_employee": 10,
+                            },
+                        ],
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us-a",
+                                    },
+                                    {
+                                        "id": "eng-2",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us-b",
+                                    },
+                                ],
+                            }
+                        ],
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
+
+    def test_rd_org_leave_proration_requires_vacation_and_sick_days_together_when_manual(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "vacation_days and sick_days must be provided together",
+        ):
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 1,
+                    "working_days": 22,
+                    "holidays_days": 0,
+                    "vacation_days": 2,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "us",
+                                "country_code": "US",
+                                "working_day_rules": {"workweek": "mon-fri"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 15,
+                                "sick_days_per_employee": 8,
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    "roadmap": {"features": []},
+                },
+                load_defaults(),
+            )
+
     def test_sprint_rejects_non_sprint_selectors(self) -> None:
         with self.assertRaises(ValueError):
             PlanningInput.from_dict(
