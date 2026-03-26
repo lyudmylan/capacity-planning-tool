@@ -122,17 +122,20 @@ class ServerApiTests(unittest.TestCase):
         self.assertIn("selected_plan", result)
         self.assertEqual(set(result["function_capacity_fit"]), {"eng", "qa", "devops"})
 
-    def test_plan_planning_schedule_returns_validation_error_until_supported(self) -> None:
+    def test_plan_planning_schedule_returns_schedule_feasibility_payload(self) -> None:
         data = self._load_example("v2_rd_org_planning_schedule.json")
         resp = self.client.post(
             "/api/plan",
             data=json.dumps(data),
             content_type="application/json",
         )
-        self.assertEqual(resp.status_code, 422)
+        self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
-        self.assertIn("error", result)
-        self.assertIn("planning_schedule is not supported", result["error"])
+        self.assertIn("function_capacity_fit", result)
+        self.assertIn("bottleneck_functions", result)
+        self.assertIn("dependency_rules_pass", result)
+        self.assertIn("dependency_violations", result)
+        self.assertIn("selected_plan", result)
 
     def test_plan_invalid_json_body(self) -> None:
         resp = self.client.post(

@@ -2339,14 +2339,126 @@ class PlannerTests(unittest.TestCase):
             ["QA Heavy"],
         )
 
-    def test_planner_rejects_planning_schedule_until_supported(self) -> None:
-        planning_input = PlanningInput.from_dict(
-            _load_raw_example("v2_rd_org_planning_schedule.json"),
+    def test_planning_schedule_returns_baseline_feasibility_without_replanning(self) -> None:
+        result = plan_capacity(
+            PlanningInput.from_dict(
+                _load_raw_example("v2_rd_org_planning_schedule.json"),
+                load_defaults(),
+            ),
             load_defaults(),
         )
 
-        with self.assertRaises(ValueError):
-            plan_capacity(planning_input, load_defaults())
+        self.assertFalse(result["feasibility"])
+        self.assertEqual(
+            result["function_capacity_fit"],
+            {"eng": True, "qa": False, "devops": True},
+        )
+        self.assertEqual(result["bottleneck_functions"], ["qa"])
+        self.assertFalse(result["dependency_rules_pass"])
+        self.assertEqual(len(result["dependency_violations"]), 1)
+        self.assertIn("qa dependency rule failed", result["dependency_violations"][0])
+        self.assertEqual(result["deferred_features"], [])
+        self.assertEqual(result["dropped_features"], [])
+        self.assertEqual(result["evaluated_alternatives"], [])
+        self.assertEqual(result["agentic_iterations"], [])
+        self.assertEqual(result["selected_plan"]["feasibility"], result["feasibility"])
+        self.assertEqual(
+            result["selected_plan"]["dependency_rules_pass"],
+            result["dependency_rules_pass"],
+        )
+        self.assertEqual(
+            result["selected_plan"]["dependency_violations"],
+            result["dependency_violations"],
+        )
+
+    def test_planning_schedule_can_fail_due_to_dependency_pressure_only(self) -> None:
+        result = plan_capacity(
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "planning_schedule",
+                    "planning_horizon": "sprint",
+                    "start_date": "2026-03-02",
+                    "end_date": "2026-03-13",
+                    "working_days": 10,
+                    "holidays_days": 0,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "focus_factor": 1.0,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "il",
+                                "country_code": "IL",
+                                "working_day_rules": {"workweek": "sun-thu"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
+                        "org_schedule_policies": {
+                            "post_dev_min_ratio": {
+                                "qa": 0.4
+                            }
+                        },
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "il"
+                                    },
+                                    {
+                                        "id": "eng-2",
+                                        "function": "eng",
+                                        "seniority": "Mid",
+                                        "country_profile": "il"
+                                    },
+                                    {
+                                        "id": "eng-3",
+                                        "function": "eng",
+                                        "seniority": "Mid",
+                                        "country_profile": "il"
+                                    },
+                                    {
+                                        "id": "qa-1",
+                                        "function": "qa",
+                                        "seniority": "Mid",
+                                        "country_profile": "il"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {
+                        "features": [
+                            {
+                                "id": "feature-1",
+                                "name": "Dependency Pressure",
+                                "estimates": {
+                                    "eng": "L",
+                                    "qa": "S"
+                                },
+                                "priority": "High"
+                            }
+                        ]
+                    }
+                },
+                load_defaults(),
+            ),
+            load_defaults(),
+        )
+
+        self.assertEqual(
+            result["function_capacity_fit"],
+            {"eng": True, "qa": True, "devops": True},
+        )
+        self.assertFalse(result["dependency_rules_pass"])
+        self.assertEqual(result["bottleneck_functions"], [])
+        self.assertFalse(result["feasibility"])
+        self.assertIn("qa dependency rule failed", result["dependency_violations"][0])
 
     def test_rd_org_qa_and_devops_do_not_increase_legacy_eng_capacity(self) -> None:
         planning_input = PlanningInput.from_dict(
