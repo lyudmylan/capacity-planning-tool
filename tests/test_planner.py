@@ -805,6 +805,65 @@ class PlannerTests(unittest.TestCase):
         self.assertIsNotNone(planning_input.start_date)
         self.assertIsNotNone(planning_input.end_date)
 
+    def test_planner_rejects_planning_schedule_until_supported(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            _load_raw_example("v2_rd_org_planning_schedule.json"),
+            load_defaults(),
+        )
+
+        with self.assertRaises(ValueError):
+            plan_capacity(planning_input, load_defaults())
+
+    def test_rd_org_qa_and_devops_do_not_increase_legacy_eng_capacity(self) -> None:
+        planning_input = PlanningInput.from_dict(
+            {
+                "planning_mode": "capacity_check",
+                "planning_horizon": "month",
+                "calendar_year": 2026,
+                "month_index": 5,
+                "working_days": 20,
+                "holidays_days": 0,
+                "vacation_days": 0,
+                "sick_days": 0,
+                "rd_org": {
+                    "country_profiles": [
+                        {
+                            "id": "il",
+                            "country_code": "IL",
+                            "working_day_rules": {"workweek": "sun-thu"},
+                            "holiday_calendar_rules": {"calendar": "israeli"},
+                            "vacation_days_per_employee": 18,
+                            "sick_days_per_employee": 8
+                        }
+                    ],
+                    "teams": [
+                        {
+                            "name": "Core Product",
+                            "members": [
+                                {
+                                    "id": "qa-1",
+                                    "function": "qa",
+                                    "seniority": "Mid",
+                                    "country_profile": "il"
+                                },
+                                {
+                                    "id": "ops-1",
+                                    "function": "devops",
+                                    "seniority": "Senior",
+                                    "country_profile": "il"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "roadmap": {"features": []}
+            },
+            load_defaults(),
+        )
+
+        result = plan_capacity(planning_input, load_defaults())
+        self.assertEqual(result["capacity_dev_days"], 0.0)
+
         with self.assertRaises(ValueError):
             PlanningInput.from_dict(
                 {

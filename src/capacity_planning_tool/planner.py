@@ -11,6 +11,7 @@ from capacity_planning_tool.models import (
     DefaultsConfig,
     EngineerCapacity,
     FeatureDemand,
+    InputValidationError,
     PlanningInput,
 )
 
@@ -41,6 +42,10 @@ def _expand_engineers(
     engineers: list[EngineerCapacity] = []
     for team in planning_input.teams:
         for role in team.roles:
+            # Until function-aware capacity lands, downstream rd_org roles should not
+            # inflate the legacy engineering-capacity calculation.
+            if role.role in {"qa", "devops"}:
+                continue
             if role.members:
                 for member in role.members:
                     engineers.append(
@@ -593,6 +598,11 @@ def _build_tradeoff_summary(
 
 def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> dict[str, Any]:
     """Build a JSON-serializable planning result."""
+    if planning_input.planning_mode == "planning_schedule":
+        raise InputValidationError(
+            "planning_schedule is not supported by the current planner yet."
+        )
+
     precision = defaults.output_precision
     engineers = _expand_engineers(planning_input, defaults)
     feature_demands = tuple(_feature_demands(planning_input, defaults))
