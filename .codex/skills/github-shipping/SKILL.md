@@ -16,6 +16,12 @@ description: "Use when the user wants to finish, ship, push, merge, or complete 
 1. Read the repo's `AGENTS.md` first.
 2. Apply the repo's shared shipping workflow.
 3. If the repo defines stricter or different rules, follow the repo-specific override.
+4. Before merging a PR, verify all three review surfaces:
+   - PR status/checks
+   - top-level PR reviews and comments
+   - inline review comments on the diff
+5. Do not treat a PR as ready just because CI is green.
+6. If there are actionable review findings, address them or explicitly decide to defer them before merge.
 
 ## What this skill adds
 
@@ -29,3 +35,16 @@ Default review focus:
 - error handling gaps
 - logging or observability regressions
 - hidden hardcoding of change-prone policy
+
+## Pre-Merge Checklist
+
+For GitHub PRs in this repo, check:
+
+1. PR status and checks
+   - example: `gh pr view --json state,mergeStateStatus,reviewDecision,statusCheckRollup`
+2. Top-level PR reviews and comments
+   - example: `gh pr view --json reviews,comments`
+3. Inline review comments
+   - example: `gh api repos/<owner>/<repo>/pulls/<number>/comments`
+
+If any inline or review comments contain actionable findings, handle them before merge or call them out explicitly to the user.
