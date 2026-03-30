@@ -23,7 +23,9 @@ export function applyEditableFieldsToPayload(data, rawFieldValues) {
     "overhead_days_per_sprint",
   ];
 
-  next.planning_horizon = rawFieldValues.planning_horizon;
+  const nextPlanningHorizon = rawFieldValues.planning_horizon;
+  next.planning_horizon = nextPlanningHorizon;
+  normalizePeriodSelectors(next, nextPlanningHorizon, data);
   for (const field of fields) {
     const value = parseNumber(rawFieldValues[field]);
     if (value !== undefined) {
@@ -98,6 +100,140 @@ export function buildPlanComparison(inputData, result) {
 function parseNumber(value) {
   const number = Number.parseFloat(value);
   return Number.isNaN(number) ? undefined : number;
+}
+
+function normalizePeriodSelectors(payload, planningHorizon, sourcePayload = payload) {
+  delete payload.calendar_year;
+  delete payload.half_year_index;
+  delete payload.quarter_index;
+  delete payload.month_index;
+  delete payload.start_date;
+  delete payload.end_date;
+
+  const inferred = inferPeriodSelectors(sourcePayload);
+  if (planningHorizon === "year") {
+    payload.calendar_year = inferred.calendar_year;
+    return;
+  }
+  if (planningHorizon === "half_year") {
+    payload.calendar_year = inferred.calendar_year;
+    payload.half_year_index = inferred.half_year_index;
+    return;
+  }
+  if (planningHorizon === "quarter") {
+    payload.calendar_year = inferred.calendar_year;
+    payload.quarter_index = inferred.quarter_index;
+    return;
+  }
+  if (planningHorizon === "month") {
+    payload.calendar_year = inferred.calendar_year;
+    payload.month_index = inferred.month_index;
+    return;
+  }
+  if (planningHorizon === "sprint") {
+    payload.start_date = inferred.start_date;
+    payload.end_date = inferred.end_date;
+  }
+}
+
+function inferPeriodSelectors(payload) {
+  const now = new Date();
+  const startDate = parseIsoDate(payload.start_date);
+  const endDate = parseIsoDate(payload.end_date);
+  const monthFromDate = startDate ? startDate.getUTCMonth() + 1 : undefined;
+  const yearFromDate = startDate?.getUTCFullYear() ?? endDate?.getUTCFullYear();
+  const rawQuarterIndex = normalizeInteger(payload.quarter_index);
+  const rawHalfYearIndex = normalizeInteger(payload.half_year_index);
+  const calendarYear = normalizeInteger(payload.calendar_year)
+    ?? yearFromDate
+    ?? now.getUTCFullYear();
+  const monthIndex = clampMonth(
+    normalizeInteger(payload.month_index)
+      ?? monthFromDate
+      ?? quarterToStartMonth(rawQuarterIndex)
+      ?? halfYearToStartMonth(rawHalfYearIndex)
+      ?? 1
+  );
+  const quarterIndex = clampQuarter(
+    rawQuarterIndex
+      ?? monthToQuarter(monthIndex)
+  );
+  const halfYearIndex = clampHalfYear(
+    rawHalfYearIndex
+      ?? quarterToHalfYear(quarterIndex)
+  );
+  const normalizedStartDate = startDate ?? safeUtcDate(calendarYear, monthIndex, 1);
+  const normalizedEndDate = endDate ?? addDays(normalizedStartDate, 13);
+
+  return {
+    calendar_year: calendarYear,
+    half_year_index: halfYearIndex,
+    quarter_index: quarterIndex,
+    month_index: monthIndex,
+    start_date: formatIsoDate(normalizedStartDate),
+    end_date: formatIsoDate(normalizedEndDate),
+  };
+}
+
+function normalizeInteger(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  return Math.trunc(value);
+}
+
+function parseIsoDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return undefined;
+  }
+  const parsed = new Date(value + "T00:00:00Z");
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+function formatIsoDate(value) {
+  return value.toISOString().slice(0, 10);
+}
+
+function addDays(value, days) {
+  const next = new Date(value.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function safeUtcDate(year, monthIndex, day) {
+  const normalizedYear = Number.isFinite(year) ? year : new Date().getUTCFullYear();
+  const normalizedMonth = Number.isFinite(monthIndex) ? clampMonth(monthIndex) : 1;
+  return new Date(Date.UTC(normalizedYear, normalizedMonth - 1, day));
+}
+
+function monthToQuarter(monthIndex) {
+  return Math.floor((monthIndex - 1) / 3) + 1;
+}
+
+function quarterToHalfYear(quarterIndex) {
+  return quarterIndex <= 2 ? 1 : 2;
+}
+
+function quarterToStartMonth(quarterIndex) {
+  if (quarterIndex == null) return undefined;
+  return ((clampQuarter(quarterIndex) - 1) * 3) + 1;
+}
+
+function halfYearToStartMonth(halfYearIndex) {
+  if (halfYearIndex == null) return undefined;
+  return clampHalfYear(halfYearIndex) === 1 ? 1 : 7;
+}
+
+function clampMonth(value) {
+  return Math.min(12, Math.max(1, value));
+}
+
+function clampQuarter(value) {
+  return Math.min(4, Math.max(1, value));
+}
+
+function clampHalfYear(value) {
+  return Math.min(2, Math.max(1, value));
 }
 
 function getSignedOutcomeTone(value, mapping) {
