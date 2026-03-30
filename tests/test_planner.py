@@ -2566,6 +2566,19 @@ class PlannerTests(unittest.TestCase):
             "Plan is not feasible for the selected horizon.",
             result["business_goal_assessment"]["hard_constraint_violations"],
         )
+        self.assertIn("Function capacity is insufficient for: qa.", result["risks"])
+        self.assertNotIn(
+            "Roadmap demand exceeds available capacity for the selected horizon.",
+            result["risks"],
+        )
+        self.assertEqual(
+            result["suggestions"],
+            ["Increase capacity or reduce scope for the bottleneck functions: qa."],
+        )
+        self.assertEqual(
+            result["tradeoff_summary"],
+            ["The roadmap does not fit the available function capacity for: qa."],
+        )
         self.assertEqual(result["selected_plan"]["feasibility"], result["feasibility"])
         self.assertFalse(result["selected_plan"]["goal_compliant"])
         self.assertFalse(result["selected_plan"]["acceptable"])
@@ -2606,6 +2619,28 @@ class PlannerTests(unittest.TestCase):
         self.assertIn(
             "Plan is not feasible for the selected horizon.",
             result["business_goal_assessment"]["hard_constraint_violations"],
+        )
+        self.assertIn(
+            "Schedule dependency rules prevent completion within the selected horizon.",
+            result["risks"],
+        )
+        self.assertNotIn(
+            "Roadmap demand exceeds available capacity for the selected horizon.",
+            result["risks"],
+        )
+        self.assertEqual(
+            result["suggestions"],
+            [
+                "Increase downstream capacity, reduce dependent scope, or relax "
+                "schedule policy assumptions to satisfy planning constraints."
+            ],
+        )
+        self.assertEqual(
+            result["tradeoff_summary"],
+            [
+                "The roadmap fits function capacity but cannot finish within the selected "
+                "horizon once schedule dependency rules are applied."
+            ],
         )
         self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
         self.assertIn("dependency_rules_pass", result["selected_plan"])
