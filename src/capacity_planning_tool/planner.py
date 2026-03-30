@@ -513,6 +513,11 @@ def _evaluate_plan(
     )
     acceptable = feasibility and business_goal_assessment["acceptable"]
     goal_compliant = feasibility and business_goal_assessment["goal_compliant"]
+    business_goal_assessment = {
+        **business_goal_assessment,
+        "acceptable": acceptable,
+        "goal_compliant": goal_compliant,
+    }
     return EvaluatedPlan(
         delivered_features=delivered_features,
         removed_features=removed_features,

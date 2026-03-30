@@ -1044,18 +1044,22 @@ import {
     const body = document.getElementById("goal-body");
     body.innerHTML = "";
 
+    const selectedPlan = data.selected_plan ?? data;
     const bga = data.selected_plan?.business_goal_assessment ?? data.business_goal_assessment;
     if (!bga) {
       body.innerHTML = '<div class="scope-empty">No business goals defined</div>';
       return;
     }
 
+    const goalCompliant = selectedPlan?.goal_compliant ?? bga.goal_compliant;
+    const acceptable = selectedPlan?.acceptable ?? bga.acceptable;
+
     // Status banner
     const status = document.createElement("div");
-    if (bga.goal_compliant) {
+    if (goalCompliant) {
       status.className = "goal-status compliant";
       status.innerHTML = "<strong>Goal Compliant</strong> — All hard and soft constraints satisfied";
-    } else if (bga.acceptable) {
+    } else if (acceptable) {
       status.className = "goal-status acceptable";
       status.innerHTML = "<strong>Acceptable</strong> — Hard constraints met, but soft goal tradeoffs exist";
     } else {
