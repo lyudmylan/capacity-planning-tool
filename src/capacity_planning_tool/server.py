@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 from collections.abc import Sequence
+from json import JSONDecodeError
 from typing import Any
 
 from flask import Flask, Response, jsonify, request, send_from_directory
@@ -36,8 +37,10 @@ def create_app() -> Flask:
 
     @app.route("/api/plan", methods=["POST"])
     def run_planner() -> tuple[Response, int]:
-        body = request.get_json(silent=True)
-        if body is None:
+        raw_body = request.get_data(cache=True, as_text=True)
+        try:
+            body = json.loads(raw_body)
+        except JSONDecodeError:
             return jsonify({"error": "Request body must be valid JSON."}), 400
         try:
             defaults = load_defaults()

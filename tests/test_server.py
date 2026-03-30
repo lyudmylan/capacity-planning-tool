@@ -266,6 +266,16 @@ class ServerApiTests(unittest.TestCase):
         result = resp.get_json()
         self.assertEqual(result["error"], "input must be a JSON object.")
 
+    def test_plan_rejects_json_null_body_as_non_object_validation_error(self) -> None:
+        resp = self.client.post(
+            "/api/plan",
+            data="null",
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 422)
+        result = resp.get_json()
+        self.assertEqual(result["error"], "input must be a JSON object.")
+
     def test_plan_missing_required_fields(self) -> None:
         resp = self.client.post(
             "/api/plan",

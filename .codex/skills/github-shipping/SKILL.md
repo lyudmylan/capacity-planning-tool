@@ -20,12 +20,9 @@ description: "Use when the user wants to finish, ship, push, merge, or complete 
    - PR status/checks
    - top-level PR reviews and comments
    - inline review comments on the diff
-5. After CI turns green, wait once for 2 minutes before the final review sweep so automated review bots have time to finish posting feedback.
-6. Use one final review sweep after that wait; do not busy-poll.
-   - example: `sleep 120`
-   - then re-run the three review-surface checks once
-7. Do not treat a PR as ready just because CI is green.
-8. If there are actionable review findings, address them or explicitly decide to defer them before merge.
+5. After CI turns green, do one final review sweep across those same three surfaces.
+6. Do not treat a PR as ready just because CI is green.
+7. If there are actionable review findings, address them or explicitly decide to defer them before merge.
 
 ## What this skill adds
 
@@ -50,8 +47,6 @@ For GitHub PRs in this repo, check:
    - example: `gh pr view --json reviews,comments`
 3. Inline review comments
    - example: `gh api repos/<owner>/<repo>/pulls/<number>/comments`
-4. One-time automated-review soak
-   - example: `sleep 120`
-5. Re-run the three review checks once after the soak
+4. Re-run the three review checks once after CI is green and immediately before merge
 
 If any inline or review comments contain actionable findings, handle them before merge or call them out explicitly to the user.
