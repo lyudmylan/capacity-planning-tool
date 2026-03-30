@@ -244,6 +244,16 @@ class ServerApiTests(unittest.TestCase):
         result = resp.get_json()
         self.assertIn("error", result)
 
+    def test_plan_rejects_non_object_json_body(self) -> None:
+        resp = self.client.post(
+            "/api/plan",
+            data="[]",
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 422)
+        result = resp.get_json()
+        self.assertEqual(result["error"], "input must be a JSON object.")
+
     def test_plan_missing_required_fields(self) -> None:
         resp = self.client.post(
             "/api/plan",

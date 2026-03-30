@@ -960,7 +960,8 @@ class PlanningInput:
     business_goals: BusinessGoals
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], defaults: DefaultsConfig) -> PlanningInput:
+    def from_dict(cls, data: Any, defaults: DefaultsConfig) -> PlanningInput:
+        data = _require_mapping(data, "input")
         planning_mode = _require_string(data.get("planning_mode"), "planning_mode")
         if planning_mode not in SUPPORTED_PLANNING_MODES:
             raise InputValidationError(
