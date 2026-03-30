@@ -12,6 +12,36 @@ from capacity_planning_tool.server import DEFAULT_SERVER_PORT, build_parser, cre
 class ServerApiTests(unittest.TestCase):
     """Tests for /api/plan and /api/examples endpoints."""
 
+    CAPACITY_CHECK_OUTPUT_KEYS = {
+        "capacity_dev_days",
+        "demand_dev_days",
+        "utilization",
+        "planning_mode",
+        "capacity_by_function",
+        "demand_by_function",
+        "utilization_by_function",
+        "buffer_by_function",
+        "function_capacity_fit",
+        "bottleneck_functions",
+        "feasibility",
+        "buffer_dev_days",
+        "delivered_features",
+        "deferred_features",
+        "dropped_features",
+        "selected_plan",
+        "business_goal_assessment",
+        "evaluated_alternatives",
+        "agentic_iterations",
+        "risks",
+        "suggestions",
+        "tradeoff_summary",
+    }
+
+    PLANNING_SCHEDULE_OUTPUT_KEYS = CAPACITY_CHECK_OUTPUT_KEYS | {
+        "dependency_rules_pass",
+        "dependency_violations",
+    }
+
     def setUp(self) -> None:
         self.app = create_app()
         self.app.config["TESTING"] = True
@@ -21,6 +51,24 @@ class ServerApiTests(unittest.TestCase):
         examples_dir = Path(__file__).resolve().parents[1] / "examples"
         with (examples_dir / name).open("r", encoding="utf-8") as f:
             return json.load(f)
+
+    def _assert_capacity_check_contract(self, result: dict) -> None:
+        self.assertTrue(self.CAPACITY_CHECK_OUTPUT_KEYS.issubset(set(result.keys())))
+        self.assertEqual(result["planning_mode"], "capacity_check")
+        self.assertNotIn("dependency_rules_pass", result)
+        self.assertNotIn("dependency_violations", result)
+        self.assertEqual(result["selected_plan"]["planning_mode"], "capacity_check")
+        self.assertNotIn("dependency_rules_pass", result["selected_plan"])
+        self.assertNotIn("dependency_violations", result["selected_plan"])
+
+    def _assert_planning_schedule_contract(self, result: dict) -> None:
+        self.assertTrue(self.PLANNING_SCHEDULE_OUTPUT_KEYS.issubset(set(result.keys())))
+        self.assertEqual(result["planning_mode"], "planning_schedule")
+        self.assertIn("dependency_rules_pass", result)
+        self.assertIn("dependency_violations", result)
+        self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
+        self.assertIn("dependency_rules_pass", result["selected_plan"])
+        self.assertIn("dependency_violations", result["selected_plan"])
 
     def test_index_returns_html(self) -> None:
         resp = self.client.get("/")
@@ -97,7 +145,7 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
-        self.assertEqual(result["planning_mode"], "capacity_check")
+        self._assert_capacity_check_contract(result)
         self.assertEqual(
             result["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},
@@ -112,8 +160,6 @@ class ServerApiTests(unittest.TestCase):
             {"eng": True, "qa": True, "devops": True},
         )
         self.assertEqual(result["selected_plan"]["bottleneck_functions"], [])
-        self.assertNotIn("dependency_rules_pass", result)
-        self.assertNotIn("dependency_violations", result)
 
     def test_plan_v2_capacity_check_example_with_function_estimates(self) -> None:
         data = self._load_example("v2_function_estimates_capacity_check.json")
@@ -124,7 +170,7 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
-        self.assertEqual(result["planning_mode"], "capacity_check")
+        self._assert_capacity_check_contract(result)
         self.assertIn("function_capacity_fit", result)
         self.assertIn("capacity_by_function", result)
         self.assertIn("demand_by_function", result)
@@ -132,8 +178,6 @@ class ServerApiTests(unittest.TestCase):
         self.assertIn("buffer_by_function", result)
         self.assertIn("bottleneck_functions", result)
         self.assertIn("selected_plan", result)
-        self.assertNotIn("dependency_rules_pass", result)
-        self.assertNotIn("dependency_violations", result)
         self.assertEqual(set(result["function_capacity_fit"]), {"eng", "qa", "devops"})
 
     def test_plan_planning_schedule_returns_schedule_feasibility_payload(self) -> None:
@@ -145,6 +189,7 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
+        self._assert_planning_schedule_contract(result)
         self.assertEqual(result["planning_mode"], "planning_schedule")
         self.assertIn("function_capacity_fit", result)
         self.assertIn("capacity_by_function", result)
@@ -155,9 +200,6 @@ class ServerApiTests(unittest.TestCase):
         self.assertIn("dependency_rules_pass", result)
         self.assertIn("dependency_violations", result)
         self.assertIn("selected_plan", result)
-        self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
-        self.assertIn("dependency_rules_pass", result["selected_plan"])
-        self.assertIn("dependency_violations", result["selected_plan"])
 
     def test_plan_planning_schedule_dependency_only_example(self) -> None:
         data = self._load_example("v2_rd_org_planning_schedule_dependency_only.json")
@@ -168,14 +210,13 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
-        self.assertEqual(result["planning_mode"], "planning_schedule")
+        self._assert_planning_schedule_contract(result)
         self.assertEqual(
             result["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},
         )
         self.assertFalse(result["dependency_rules_pass"])
         self.assertIn("qa dependency rule failed", result["dependency_violations"][0])
-        self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
 
     def test_plan_invalid_json_body(self) -> None:
         resp = self.client.post(
@@ -208,6 +249,15 @@ class ServerApiTests(unittest.TestCase):
             self.assertIn("data", ex)
             self.assertIsInstance(ex["data"], dict)
 
+    def test_examples_endpoint_includes_v2_output_contract_examples(self) -> None:
+        resp = self.client.get("/api/examples")
+        self.assertEqual(resp.status_code, 200)
+        examples = resp.get_json()
+        example_names = {example["name"] for example in examples}
+
+        self.assertIn("v2_function_estimates_capacity_check", example_names)
+        self.assertIn("v2_rd_org_planning_schedule_dependency_only", example_names)
+
     def test_plan_output_matches_cli_output_schema(self) -> None:
         """Ensure the API returns the same fields the CLI produces."""
         data = self._load_example("feasible_plan.json")
@@ -217,31 +267,7 @@ class ServerApiTests(unittest.TestCase):
             content_type="application/json",
         )
         result = resp.get_json()
-        expected_keys = {
-            "capacity_dev_days",
-            "demand_dev_days",
-            "utilization",
-            "planning_mode",
-            "capacity_by_function",
-            "demand_by_function",
-            "utilization_by_function",
-            "buffer_by_function",
-            "function_capacity_fit",
-            "bottleneck_functions",
-            "feasibility",
-            "buffer_dev_days",
-            "delivered_features",
-            "deferred_features",
-            "dropped_features",
-            "selected_plan",
-            "business_goal_assessment",
-            "evaluated_alternatives",
-            "agentic_iterations",
-            "risks",
-            "suggestions",
-            "tradeoff_summary",
-        }
-        self.assertTrue(expected_keys.issubset(set(result.keys())))
+        self._assert_capacity_check_contract(result)
 
 
 if __name__ == "__main__":
