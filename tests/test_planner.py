@@ -2533,6 +2533,7 @@ class PlannerTests(unittest.TestCase):
             load_defaults(),
         )
 
+        self.assertEqual(result["planning_mode"], "planning_schedule")
         self.assertFalse(result["feasibility"])
         self.assertEqual(
             result["function_capacity_fit"],
@@ -2542,6 +2543,7 @@ class PlannerTests(unittest.TestCase):
         self.assertFalse(result["dependency_rules_pass"])
         self.assertEqual(len(result["dependency_violations"]), 1)
         self.assertIn("qa dependency rule failed", result["dependency_violations"][0])
+        self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
         self.assertEqual(result["deferred_features"], [])
         self.assertEqual(result["dropped_features"], [])
         self.assertEqual(result["evaluated_alternatives"], [])
@@ -2565,6 +2567,7 @@ class PlannerTests(unittest.TestCase):
             load_defaults(),
         )
 
+        self.assertEqual(result["planning_mode"], "planning_schedule")
         self.assertEqual(
             result["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},
@@ -2573,6 +2576,9 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(result["bottleneck_functions"], [])
         self.assertFalse(result["feasibility"])
         self.assertIn("qa dependency rule failed", result["dependency_violations"][0])
+        self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
+        self.assertIn("dependency_rules_pass", result["selected_plan"])
+        self.assertIn("dependency_violations", result["selected_plan"])
 
     def test_rd_org_qa_and_devops_do_not_increase_legacy_eng_capacity(self) -> None:
         planning_input = PlanningInput.from_dict(

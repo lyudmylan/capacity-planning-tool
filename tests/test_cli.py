@@ -126,6 +126,7 @@ class CliTests(unittest.TestCase):
 
         result = json.loads(completed.stdout)
         self.assertEqual(completed.stderr, "")
+        self.assertEqual(result["planning_mode"], "planning_schedule")
         self.assertIn("capacity_by_function", result)
         self.assertIn("demand_by_function", result)
         self.assertIn("utilization_by_function", result)
@@ -136,6 +137,9 @@ class CliTests(unittest.TestCase):
         )
         self.assertFalse(result["dependency_rules_pass"])
         self.assertIn("qa dependency rule failed", result["dependency_violations"][0])
+        self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
+        self.assertIn("dependency_rules_pass", result["selected_plan"])
+        self.assertIn("dependency_violations", result["selected_plan"])
 
     def test_cli_can_write_output_file(self) -> None:
         input_path = PROJECT_ROOT / "examples" / "infeasible_plan.json"
