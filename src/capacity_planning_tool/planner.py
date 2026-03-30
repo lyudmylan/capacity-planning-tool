@@ -579,11 +579,12 @@ def _removable_features(
 def _serialize_evaluated_plan(
     evaluated_plan: EvaluatedPlan,
     *,
+    planning_mode: str,
     capacity_dev_days: float,
     capacity_by_function: dict[str, float],
     precision: int,
 ) -> dict[str, Any]:
-    return {
+    serialized_plan = {
         "capacity_dev_days": capacity_dev_days,
         "demand_dev_days": evaluated_plan.demand_dev_days,
         "utilization": evaluated_plan.utilization,
@@ -591,10 +592,9 @@ def _serialize_evaluated_plan(
         "demand_by_function": evaluated_plan.demand_by_function,
         "utilization_by_function": evaluated_plan.utilization_by_function,
         "buffer_by_function": evaluated_plan.buffer_by_function,
+        "planning_mode": planning_mode,
         "function_capacity_fit": evaluated_plan.function_capacity_fit,
         "bottleneck_functions": list(evaluated_plan.bottleneck_functions),
-        "dependency_rules_pass": evaluated_plan.dependency_rules_pass,
-        "dependency_violations": list(evaluated_plan.dependency_violations),
         "feasibility": evaluated_plan.feasibility,
         "buffer_dev_days": evaluated_plan.buffer_dev_days,
         "acceptable": evaluated_plan.acceptable,
@@ -614,6 +614,10 @@ def _serialize_evaluated_plan(
         ],
         "business_goal_assessment": evaluated_plan.business_goal_assessment,
     }
+    if planning_mode == "planning_schedule":
+        serialized_plan["dependency_rules_pass"] = evaluated_plan.dependency_rules_pass
+        serialized_plan["dependency_violations"] = list(evaluated_plan.dependency_violations)
+    return serialized_plan
 
 
 def _run_agentic_replanning_loop(
@@ -691,6 +695,7 @@ def _run_agentic_replanning_loop(
                     "removed_feature": feature_to_remove.to_dict(precision=precision),
                     "plan": _serialize_evaluated_plan(
                         candidate_plan,
+                        planning_mode=planning_input.planning_mode,
                         capacity_dev_days=capacity_dev_days,
                         capacity_by_function=capacity_by_function,
                         precision=precision,
@@ -715,6 +720,7 @@ def _run_agentic_replanning_loop(
                 "selected_removed_feature": selected_feature.to_dict(precision=precision),
                 "selected_plan": _serialize_evaluated_plan(
                     selected_plan,
+                    planning_mode=planning_input.planning_mode,
                     capacity_dev_days=capacity_dev_days,
                     capacity_by_function=capacity_by_function,
                     precision=precision,
@@ -724,6 +730,7 @@ def _run_agentic_replanning_loop(
                         "removed_feature": feature.to_dict(precision=precision),
                         "plan": _serialize_evaluated_plan(
                             candidate,
+                            planning_mode=planning_input.planning_mode,
                             capacity_dev_days=capacity_dev_days,
                             capacity_by_function=capacity_by_function,
                             precision=precision,
@@ -919,7 +926,7 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
             defaults=defaults,
         )
 
-    return {
+    result = {
         "capacity_dev_days": capacity_dev_days,
         "demand_dev_days": demand_dev_days,
         "utilization": utilization,
@@ -927,10 +934,9 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
         "demand_by_function": baseline_plan.demand_by_function,
         "utilization_by_function": baseline_plan.utilization_by_function,
         "buffer_by_function": baseline_plan.buffer_by_function,
+        "planning_mode": planning_input.planning_mode,
         "function_capacity_fit": function_capacity_fit,
         "bottleneck_functions": list(bottleneck_functions),
-        "dependency_rules_pass": dependency_rules_pass,
-        "dependency_violations": list(dependency_violations),
         "feasibility": feasibility,
         "buffer_dev_days": buffer_dev_days,
         "delivered_features": _serialize_feature_list(
@@ -948,6 +954,7 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
         ],
         "selected_plan": _serialize_evaluated_plan(
             selected_plan,
+            planning_mode=planning_input.planning_mode,
             capacity_dev_days=capacity_dev_days,
             capacity_by_function=capacity_by_function,
             precision=precision,
@@ -976,3 +983,7 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
             capacity_dev_days=capacity_dev_days,
         ),
     }
+    if planning_input.planning_mode == "planning_schedule":
+        result["dependency_rules_pass"] = dependency_rules_pass
+        result["dependency_violations"] = list(dependency_violations)
+    return result
