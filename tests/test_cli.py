@@ -254,6 +254,25 @@ class CliTests(unittest.TestCase):
         self.assertNotEqual(completed.returncode, 0)
         self.assertIn("Could not write output:", completed.stderr)
 
+    def test_cli_reports_non_object_json_cleanly(self) -> None:
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(PROJECT_ROOT / "src")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_path = Path(temp_dir) / "invalid-top-level.json"
+            input_path.write_text("[]\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [sys.executable, "-m", "capacity_planning_tool", "--input", str(input_path)],
+                cwd=PROJECT_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("Invalid input: input must be a JSON object.", completed.stderr)
+
     def test_defaults_include_logging_and_policy_settings(self) -> None:
         defaults = load_defaults()
 
