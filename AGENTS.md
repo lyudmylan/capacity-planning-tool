@@ -61,8 +61,9 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
 
 ## UI Handoff
 
-- For UI work, follow `specs/ui_handoff_v1.json` and `docs/ui_json_spec.md`.
+- For UI work, follow `specs/ui_handoff_v1.json` and `docs/ui_json_spec.md` as the shipped v2 UI source of truth.
 - Keep the planner as the source of truth for calculations and output JSON.
+- If the shipped UI input or output contract changes, update the spec files and `tests/test_ui_spec.py` in the same change.
 
 ## Extension Notes
 

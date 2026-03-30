@@ -1,15 +1,18 @@
 {
   "spec_id": "capacity-planning-ui-handoff",
-  "spec_version": "1.0",
-  "status": "draft",
-  "purpose": "Machine-readable handoff contract for a future UI that can be implemented by coding agents and used by human operators.",
+  "spec_version": "2.0",
+  "status": "active",
+  "purpose": "Machine-readable handoff contract for the shipped v2-aware UI and the next implementation-ready UI spec iteration.",
   "source_of_truth": {
     "product_doc": "docs/product.md",
     "ui_explainer_doc": "docs/ui_json_spec.md",
     "planner_input_examples": [
       "examples/feasible_plan.json",
       "examples/infeasible_plan.json",
-      "examples/goal_driven_plan.json"
+      "examples/goal_driven_plan.json",
+      "examples/v2_rd_org_capacity_check.json",
+      "examples/v2_rd_org_planning_schedule.json",
+      "examples/v2_rd_org_planning_schedule_dependency_only.json"
     ]
   },
   "delivery_model": {
@@ -18,31 +21,39 @@
     "interaction_modes": [
       "agent_consumed",
       "human_web_interface"
+    ],
+    "supported_planning_modes": [
+      "capacity_check",
+      "planning_schedule"
     ]
   },
   "product_constraints": {
     "machine_readable_io": "json_only",
     "planner_calculations": "deterministic_backend_only",
     "frontend_calculation_policy": "must_not_duplicate_planner_logic",
-    "data_persistence": "none_for_v1_ui",
-    "integrations": "none_for_v1_ui"
+    "data_persistence": "none_for_current_ui",
+    "integrations": "none_for_current_ui"
   },
   "primary_user_jobs": [
     {
       "id": "load_plan_input",
-      "description": "Load, paste, or edit a planning input JSON payload."
+      "description": "Load, paste, upload, or edit planner input JSON without losing machine-readable fidelity."
     },
     {
-      "id": "run_planner",
-      "description": "Execute the planner and receive structured output."
+      "id": "run_capacity_check",
+      "description": "Execute capacity_check inputs and compare baseline_plan against selected_plan."
     },
     {
-      "id": "review_plan_outcome",
-      "description": "Inspect feasibility, utilization, buffer, delivered scope, deferred scope, and dropped scope."
+      "id": "run_planning_schedule",
+      "description": "Execute planning_schedule inputs and inspect dependency-aware feasibility."
     },
     {
-      "id": "review_goal_alignment",
-      "description": "Inspect business-goal assessment and selected plan details."
+      "id": "review_function_bottlenecks",
+      "description": "Inspect capacity, demand, utilization, and bottlenecks by function."
+    },
+    {
+      "id": "review_goals_and_dependencies",
+      "description": "Inspect business-goal status, dependency-rule results, risks, and tradeoffs."
     },
     {
       "id": "export_output_json",
@@ -61,29 +72,30 @@
           "capabilities": [
             "paste_json",
             "upload_json",
-            "structured_edit"
+            "structured_edit",
+            "normalize_period_selectors_on_horizon_change"
           ]
         },
         {
           "id": "summary_panel",
           "title": "Plan Summary",
           "capabilities": [
+            "show_mode_specific_feasibility",
             "show_capacity_dev_days",
-            "show_demand_dev_days",
-            "show_utilization",
-            "show_feasibility",
-            "show_buffer_dev_days"
+            "show_capacity_by_function",
+            "show_function_capacity_fit",
+            "show_dependency_rule_status_when_present"
           ]
         },
         {
           "id": "scope_panel",
           "title": "Scope Decision",
           "capabilities": [
-            "show_plan_comparison",
+            "show_plan_comparison_for_capacity_check",
             "show_delivered_features",
             "show_deferred_features",
             "show_dropped_features",
-            "show_selected_plan"
+            "show_selected_plan_details"
           ]
         },
         {
@@ -91,8 +103,8 @@
           "title": "Business Goals",
           "capabilities": [
             "show_business_goal_assessment",
-            "show_agentic_iterations",
-            "show_evaluated_alternatives"
+            "show_goal_status_from_canonical_plan_flags",
+            "show_dependency_violations_when_present"
           ]
         },
         {
@@ -110,48 +122,139 @@
   ],
   "input_contract": {
     "format": "planner_input_json",
-    "required_top_level_fields": [
-      "team_structure",
+    "supported_entrypoints": [
+      "legacy_team_structure",
+      "v2_rd_org"
+    ],
+    "common_required_top_level_fields": [
+      "planning_horizon",
+      "roadmap"
+    ],
+    "v2_required_top_level_fields": [
+      "planning_mode",
+      "rd_org",
+      "roadmap"
+    ],
+    "conditional_required_groups": {
+      "organization_shape": {
+        "requires_one_of": [
+          "rd_org",
+          "team_structure"
+        ]
+      },
+      "manual_capacity_days": {
+        "all_or_none": [
+          "working_days",
+          "holidays_days",
+          "vacation_days",
+          "sick_days"
+        ]
+      },
+      "period_selectors": {
+        "year": [
+          "calendar_year"
+        ],
+        "half_year": [
+          "calendar_year",
+          "half_year_index"
+        ],
+        "quarter": [
+          "calendar_year",
+          "quarter_index"
+        ],
+        "month": [
+          "calendar_year",
+          "month_index"
+        ],
+        "sprint": [
+          "start_date",
+          "end_date"
+        ]
+      }
+    },
+    "structured_edit_fields": [
       "planning_horizon",
       "working_days",
       "holidays_days",
       "vacation_days",
       "sick_days",
-      "roadmap"
-    ],
-    "optional_top_level_fields": [
       "focus_factor",
       "sprint_days",
-      "overhead_days_per_sprint",
-      "business_goals"
+      "overhead_days_per_sprint"
     ]
   },
   "output_contract": {
     "format": "planner_output_json",
-    "required_top_level_fields": [
+    "capacity_check_top_level_fields": [
+      "planning_mode",
+      "capacity_dev_days",
+      "capacity_by_function",
+      "baseline_plan",
+      "selected_plan",
+      "evaluated_alternatives",
+      "agentic_iterations",
+      "risks",
+      "suggestions",
+      "tradeoff_summary"
+    ],
+    "planning_schedule_top_level_fields": [
       "capacity_dev_days",
       "demand_dev_days",
       "utilization",
+      "capacity_by_function",
+      "demand_by_function",
+      "utilization_by_function",
+      "buffer_by_function",
+      "planning_mode",
+      "function_capacity_fit",
+      "bottleneck_functions",
       "feasibility",
       "buffer_dev_days",
       "delivered_features",
       "deferred_features",
       "dropped_features",
-      "risks",
-      "suggestions",
-      "tradeoff_summary",
       "selected_plan",
       "business_goal_assessment",
       "evaluated_alternatives",
-      "agentic_iterations"
+      "agentic_iterations",
+      "risks",
+      "suggestions",
+      "tradeoff_summary",
+      "dependency_rules_pass",
+      "dependency_violations"
+    ],
+    "evaluated_plan_common_fields": [
+      "capacity_dev_days",
+      "demand_dev_days",
+      "utilization",
+      "capacity_by_function",
+      "demand_by_function",
+      "utilization_by_function",
+      "buffer_by_function",
+      "planning_mode",
+      "function_capacity_fit",
+      "bottleneck_functions",
+      "feasibility",
+      "buffer_dev_days",
+      "acceptable",
+      "goal_compliant",
+      "delivered_features",
+      "deferred_features",
+      "dropped_features",
+      "business_goal_assessment"
+    ],
+    "evaluated_plan_schedule_only_fields": [
+      "dependency_rules_pass",
+      "dependency_violations"
     ]
   },
   "interaction_rules": [
     "stdout_json_cleanliness_matters_for_cli_automation",
     "ui_must_display_raw_json_without_loss",
     "ui_must_allow_human_friendly_editing_without_changing_schema_meaning",
+    "structured_editor_must_keep_period_selectors_schema_valid",
     "ui_should_make_scope_cuts_and_tradeoffs_easy_to_scan",
-    "ui_should_highlight_infeasibility_and_goal_violations_prominently"
+    "ui_should_highlight_function_bottlenecks_and_dependency_failures_prominently"
   ],
   "design_preferences": {
     "quality_bar": "clean_structured_beautiful",
@@ -164,7 +267,8 @@
       "clarity",
       "visual_hierarchy",
       "decision_support",
-      "json_transparency"
+      "json_transparency",
+      "mode_specific_output_explanations"
     ]
   }
 }
