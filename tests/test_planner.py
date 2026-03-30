@@ -2356,6 +2356,163 @@ class PlannerTests(unittest.TestCase):
             ["QA Heavy"],
         )
 
+    def test_capacity_check_serializes_common_function_aware_outputs(self) -> None:
+        result = plan_capacity(
+            PlanningInput.from_dict(
+                _load_raw_example("v2_function_estimates_capacity_check.json"),
+                load_defaults(),
+            ),
+            load_defaults(),
+        )
+
+        self.assertEqual(
+            result["demand_by_function"],
+            {"eng": 32.0, "qa": 16.0, "devops": 8.0},
+        )
+        self.assertEqual(
+            set(result["capacity_by_function"]),
+            {"eng", "qa", "devops"},
+        )
+        self.assertEqual(
+            set(result["utilization_by_function"]),
+            {"eng", "qa", "devops"},
+        )
+        self.assertEqual(
+            set(result["buffer_by_function"]),
+            {"eng", "qa", "devops"},
+        )
+        self.assertEqual(
+            result["selected_plan"]["capacity_by_function"],
+            result["capacity_by_function"],
+        )
+        self.assertEqual(
+            result["selected_plan"]["demand_by_function"],
+            result["demand_by_function"],
+        )
+        self.assertEqual(
+            result["selected_plan"]["utilization_by_function"],
+            result["utilization_by_function"],
+        )
+        self.assertEqual(
+            result["selected_plan"]["buffer_by_function"],
+            result["buffer_by_function"],
+        )
+
+        for function_name in ("eng", "qa", "devops"):
+            self.assertEqual(
+                result["buffer_by_function"][function_name],
+                round(
+                    result["capacity_by_function"][function_name]
+                    - result["demand_by_function"][function_name],
+                    2,
+                ),
+            )
+
+    def test_planning_schedule_serializes_common_function_aware_outputs(self) -> None:
+        result = plan_capacity(
+            PlanningInput.from_dict(
+                _load_raw_example("v2_rd_org_planning_schedule_dependency_only.json"),
+                load_defaults(),
+            ),
+            load_defaults(),
+        )
+
+        self.assertEqual(
+            set(result["capacity_by_function"]),
+            {"eng", "qa", "devops"},
+        )
+        self.assertEqual(
+            set(result["demand_by_function"]),
+            {"eng", "qa", "devops"},
+        )
+        self.assertEqual(
+            set(result["utilization_by_function"]),
+            {"eng", "qa", "devops"},
+        )
+        self.assertEqual(
+            set(result["buffer_by_function"]),
+            {"eng", "qa", "devops"},
+        )
+        self.assertEqual(
+            result["selected_plan"]["capacity_by_function"],
+            result["capacity_by_function"],
+        )
+        self.assertEqual(
+            result["selected_plan"]["demand_by_function"],
+            result["demand_by_function"],
+        )
+        self.assertEqual(
+            result["selected_plan"]["utilization_by_function"],
+            result["utilization_by_function"],
+        )
+        self.assertEqual(
+            result["selected_plan"]["buffer_by_function"],
+            result["buffer_by_function"],
+        )
+
+    def test_function_output_uses_null_utilization_for_zero_capacity_bottleneck(self) -> None:
+        result = plan_capacity(
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 5,
+                    "working_days": 20,
+                    "holidays_days": 0,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "us",
+                                "country_code": "US",
+                                "working_day_rules": {"workweek": "mon-fri"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {
+                        "features": [
+                            {
+                                "id": "qa-follow-up",
+                                "name": "QA Follow-up",
+                                "estimates": {
+                                    "qa": "M"
+                                },
+                                "priority": "High"
+                            }
+                        ]
+                    },
+                    "business_goals": {
+                        "must_deliver_feature_ids": ["qa-follow-up"]
+                    },
+                },
+                load_defaults(),
+            ),
+            load_defaults(),
+        )
+
+        self.assertIsNone(result["utilization_by_function"]["qa"])
+        self.assertIsNone(result["selected_plan"]["utilization_by_function"]["qa"])
+        self.assertEqual(result["capacity_by_function"]["qa"], 0.0)
+        self.assertEqual(result["demand_by_function"]["qa"], 16.0)
+
     def test_planning_schedule_returns_baseline_feasibility_without_replanning(self) -> None:
         result = plan_capacity(
             PlanningInput.from_dict(

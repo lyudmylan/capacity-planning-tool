@@ -50,6 +50,10 @@ class CliTests(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertEqual(completed.stderr, "")
         self.assertIn("capacity_dev_days", result)
+        self.assertIn("capacity_by_function", result)
+        self.assertIn("demand_by_function", result)
+        self.assertIn("utilization_by_function", result)
+        self.assertIn("buffer_by_function", result)
         self.assertIn("function_capacity_fit", result)
         self.assertIn("bottleneck_functions", result)
         self.assertEqual(
@@ -74,6 +78,10 @@ class CliTests(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertEqual(completed.stderr, "")
         self.assertIn("capacity_dev_days", result)
+        self.assertIn("capacity_by_function", result)
+        self.assertIn("demand_by_function", result)
+        self.assertIn("utilization_by_function", result)
+        self.assertIn("buffer_by_function", result)
         self.assertIn("selected_plan", result)
         self.assertIn("function_capacity_fit", result)
         self.assertEqual(set(result["function_capacity_fit"]), {"eng", "qa", "devops"})
@@ -112,6 +120,10 @@ class CliTests(unittest.TestCase):
 
         result = json.loads(completed.stdout)
         self.assertEqual(completed.stderr, "")
+        self.assertIn("capacity_by_function", result)
+        self.assertIn("demand_by_function", result)
+        self.assertIn("utilization_by_function", result)
+        self.assertIn("buffer_by_function", result)
         self.assertEqual(
             result["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},

@@ -101,6 +101,10 @@ class ServerApiTests(unittest.TestCase):
             result["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},
         )
+        self.assertIn("capacity_by_function", result)
+        self.assertIn("demand_by_function", result)
+        self.assertIn("utilization_by_function", result)
+        self.assertIn("buffer_by_function", result)
         self.assertEqual(result["bottleneck_functions"], [])
         self.assertEqual(
             result["selected_plan"]["function_capacity_fit"],
@@ -118,6 +122,10 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
         self.assertIn("function_capacity_fit", result)
+        self.assertIn("capacity_by_function", result)
+        self.assertIn("demand_by_function", result)
+        self.assertIn("utilization_by_function", result)
+        self.assertIn("buffer_by_function", result)
         self.assertIn("bottleneck_functions", result)
         self.assertIn("selected_plan", result)
         self.assertEqual(set(result["function_capacity_fit"]), {"eng", "qa", "devops"})
@@ -132,6 +140,10 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
         self.assertIn("function_capacity_fit", result)
+        self.assertIn("capacity_by_function", result)
+        self.assertIn("demand_by_function", result)
+        self.assertIn("utilization_by_function", result)
+        self.assertIn("buffer_by_function", result)
         self.assertIn("bottleneck_functions", result)
         self.assertIn("dependency_rules_pass", result)
         self.assertIn("dependency_violations", result)
@@ -197,6 +209,10 @@ class ServerApiTests(unittest.TestCase):
             "capacity_dev_days",
             "demand_dev_days",
             "utilization",
+            "capacity_by_function",
+            "demand_by_function",
+            "utilization_by_function",
+            "buffer_by_function",
             "function_capacity_fit",
             "bottleneck_functions",
             "feasibility",
