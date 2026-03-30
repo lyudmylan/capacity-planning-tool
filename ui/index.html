@@ -841,8 +841,13 @@ import {
   }
 
   function renderSummary(data) {
+    const baselinePlan = data.baseline_plan ?? data;
+    const selectedPlan = data.selected_plan ?? data;
+    const deliveredFeatures = selectedPlan.delivered_features ?? data.delivered_features ?? [];
+    const deferredFeatures = selectedPlan.deferred_features ?? data.deferred_features ?? [];
+    const droppedFeatures = selectedPlan.dropped_features ?? data.dropped_features ?? [];
     const banner = document.getElementById("feasibility-banner");
-    if (data.feasibility) {
+    if (baselinePlan.feasibility) {
       banner.className = "feasibility-banner feasible";
       banner.textContent = "Plan is feasible";
     } else {
@@ -850,17 +855,17 @@ import {
       banner.textContent = "Plan is infeasible — demand exceeds capacity";
     }
 
-    const utilClass = getUtilizationStatus(data.utilization);
+    const utilClass = getUtilizationStatus(baselinePlan.utilization);
     const grid = document.getElementById("summary-grid");
     grid.innerHTML = "";
     const metrics = [
       {label: "Capacity", value: data.capacity_dev_days + " days", cls: ""},
-      {label: "Demand", value: data.demand_dev_days + " days", cls: data.feasibility ? "" : "infeasible"},
-      {label: "Utilization", value: Math.round(data.utilization * 100) + "%", cls: utilClass},
-      {label: "Buffer", value: data.buffer_dev_days + " days", cls: data.buffer_dev_days < 0 ? "infeasible" : ""},
-      {label: "Delivered", value: data.delivered_features.length + " features", cls: "feasible"},
-      {label: "Deferred", value: data.deferred_features.length, cls: data.deferred_features.length > 0 ? "warning" : ""},
-      {label: "Dropped", value: data.dropped_features.length, cls: data.dropped_features.length > 0 ? "infeasible" : ""},
+      {label: "Demand", value: baselinePlan.demand_dev_days + " days", cls: baselinePlan.feasibility ? "" : "infeasible"},
+      {label: "Utilization", value: Math.round(baselinePlan.utilization * 100) + "%", cls: utilClass},
+      {label: "Buffer", value: baselinePlan.buffer_dev_days + " days", cls: baselinePlan.buffer_dev_days < 0 ? "infeasible" : ""},
+      {label: "Delivered", value: deliveredFeatures.length + " features", cls: "feasible"},
+      {label: "Deferred", value: deferredFeatures.length, cls: deferredFeatures.length > 0 ? "warning" : ""},
+      {label: "Dropped", value: droppedFeatures.length, cls: droppedFeatures.length > 0 ? "infeasible" : ""},
     ];
     metrics.forEach(m => {
       const card = document.createElement("div");
@@ -875,6 +880,10 @@ import {
   function renderScope(data) {
     const body = document.getElementById("scope-body");
     body.innerHTML = "";
+    const selectedPlan = data.selected_plan ?? data;
+    const deliveredFeatures = selectedPlan.delivered_features ?? data.delivered_features ?? [];
+    const deferredFeatures = selectedPlan.deferred_features ?? data.deferred_features ?? [];
+    const droppedFeatures = selectedPlan.dropped_features ?? data.dropped_features ?? [];
 
     if (lastInputData) {
       const comparison = buildPlanComparison(lastInputData, data);
@@ -954,9 +963,9 @@ import {
     }
 
     const sections = [
-      {title: "Delivered", features: data.delivered_features, empty: "No features delivered"},
-      {title: "Deferred", features: data.deferred_features, empty: "Nothing deferred"},
-      {title: "Dropped", features: data.dropped_features, empty: "Nothing dropped"},
+      {title: "Delivered", features: deliveredFeatures, empty: "No features delivered"},
+      {title: "Deferred", features: deferredFeatures, empty: "Nothing deferred"},
+      {title: "Dropped", features: droppedFeatures, empty: "Nothing dropped"},
     ];
 
     sections.forEach(sec => {
@@ -1035,7 +1044,7 @@ import {
     const body = document.getElementById("goal-body");
     body.innerHTML = "";
 
-    const bga = data.business_goal_assessment;
+    const bga = data.selected_plan?.business_goal_assessment ?? data.business_goal_assessment;
     if (!bga) {
       body.innerHTML = '<div class="scope-empty">No business goals defined</div>';
       return;

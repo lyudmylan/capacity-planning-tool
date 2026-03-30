@@ -45,19 +45,20 @@ export function getUtilizationStatus(utilization) {
 
 export function buildPlanComparison(inputData, result) {
   const originalFeatureCount = inputData.roadmap?.features?.length ?? 0;
+  const baselinePlan = result.baseline_plan ?? result;
   const selectedPlan = result.selected_plan ?? {};
   const selectedDeliveredCount = selectedPlan.delivered_features?.length
     ?? result.delivered_features?.length
     ?? originalFeatureCount;
   const removedFeatures = [
-    ...(result.deferred_features ?? []),
-    ...(result.dropped_features ?? []),
+    ...(selectedPlan.deferred_features ?? result.deferred_features ?? []),
+    ...(selectedPlan.dropped_features ?? result.dropped_features ?? []),
   ];
-  const originalDemand = result.demand_dev_days;
+  const originalDemand = baselinePlan.demand_dev_days;
   const selectedDemand = selectedPlan.demand_dev_days ?? originalDemand;
-  const originalUtilization = result.utilization;
+  const originalUtilization = baselinePlan.utilization;
   const selectedUtilization = selectedPlan.utilization ?? originalUtilization;
-  const originalBuffer = result.buffer_dev_days;
+  const originalBuffer = baselinePlan.buffer_dev_days;
   const selectedBuffer = selectedPlan.buffer_dev_days ?? originalBuffer;
 
   return {
