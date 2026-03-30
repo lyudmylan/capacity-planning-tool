@@ -97,6 +97,47 @@ export function buildPlanComparison(inputData, result) {
   };
 }
 
+export function buildSummaryModel(result) {
+  const baselinePlan = result.baseline_plan ?? result;
+  const selectedPlan = result.selected_plan ?? result;
+  const planningMode = result.planning_mode ?? selectedPlan.planning_mode ?? baselinePlan.planning_mode;
+  const deliveredFeatures = selectedPlan.delivered_features ?? result.delivered_features ?? [];
+  const deferredFeatures = selectedPlan.deferred_features ?? result.deferred_features ?? [];
+  const droppedFeatures = selectedPlan.dropped_features ?? result.dropped_features ?? [];
+
+  let bannerClass = "feasibility-banner feasible";
+  let bannerText = "Plan is feasible";
+  if (!selectedPlan.feasibility) {
+    bannerClass = "feasibility-banner infeasible";
+    if (
+      planningMode === "planning_schedule"
+      && selectedPlan.dependency_rules_pass === false
+      && (selectedPlan.bottleneck_functions?.length ?? 0) === 0
+    ) {
+      bannerText = "Plan is infeasible — dependency rules fail";
+    } else if ((selectedPlan.bottleneck_functions?.length ?? 0) > 0) {
+      bannerText = "Plan is infeasible — function demand exceeds capacity";
+    } else {
+      bannerText = "Plan is infeasible — demand exceeds capacity";
+    }
+  } else if (result.baseline_plan && baselinePlan.feasibility === false) {
+    bannerText = "Selected plan is feasible";
+  }
+
+  return {
+    bannerClass,
+    bannerText,
+    capacityDevDays: result.capacity_dev_days,
+    demandDevDays: selectedPlan.demand_dev_days,
+    utilization: selectedPlan.utilization,
+    bufferDevDays: selectedPlan.buffer_dev_days,
+    deliveredCount: deliveredFeatures.length,
+    deferredCount: deferredFeatures.length,
+    droppedCount: droppedFeatures.length,
+    selectedPlanFeasible: selectedPlan.feasibility,
+  };
+}
+
 function parseNumber(value) {
   const number = Number.parseFloat(value);
   return Number.isNaN(number) ? undefined : number;

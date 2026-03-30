@@ -648,6 +648,7 @@ details[open] summary::before { content: "\25BC\00a0"; }
 import {
   applyEditableFieldsToPayload,
   buildPlanComparison,
+  buildSummaryModel,
   getUtilizationStatus,
   readEditableFieldsFromPayload,
 } from "/assets/app.js";
@@ -841,31 +842,22 @@ import {
   }
 
   function renderSummary(data) {
-    const baselinePlan = data.baseline_plan ?? data;
-    const selectedPlan = data.selected_plan ?? data;
-    const deliveredFeatures = selectedPlan.delivered_features ?? data.delivered_features ?? [];
-    const deferredFeatures = selectedPlan.deferred_features ?? data.deferred_features ?? [];
-    const droppedFeatures = selectedPlan.dropped_features ?? data.dropped_features ?? [];
+    const summary = buildSummaryModel(data);
     const banner = document.getElementById("feasibility-banner");
-    if (baselinePlan.feasibility) {
-      banner.className = "feasibility-banner feasible";
-      banner.textContent = "Plan is feasible";
-    } else {
-      banner.className = "feasibility-banner infeasible";
-      banner.textContent = "Plan is infeasible — demand exceeds capacity";
-    }
+    banner.className = summary.bannerClass;
+    banner.textContent = summary.bannerText;
 
-    const utilClass = getUtilizationStatus(baselinePlan.utilization);
+    const utilClass = getUtilizationStatus(summary.utilization);
     const grid = document.getElementById("summary-grid");
     grid.innerHTML = "";
     const metrics = [
-      {label: "Capacity", value: data.capacity_dev_days + " days", cls: ""},
-      {label: "Demand", value: baselinePlan.demand_dev_days + " days", cls: baselinePlan.feasibility ? "" : "infeasible"},
-      {label: "Utilization", value: Math.round(baselinePlan.utilization * 100) + "%", cls: utilClass},
-      {label: "Buffer", value: baselinePlan.buffer_dev_days + " days", cls: baselinePlan.buffer_dev_days < 0 ? "infeasible" : ""},
-      {label: "Delivered", value: deliveredFeatures.length + " features", cls: "feasible"},
-      {label: "Deferred", value: deferredFeatures.length, cls: deferredFeatures.length > 0 ? "warning" : ""},
-      {label: "Dropped", value: droppedFeatures.length, cls: droppedFeatures.length > 0 ? "infeasible" : ""},
+      {label: "Capacity", value: summary.capacityDevDays + " days", cls: ""},
+      {label: "Demand", value: summary.demandDevDays + " days", cls: summary.selectedPlanFeasible ? "" : "infeasible"},
+      {label: "Utilization", value: Math.round(summary.utilization * 100) + "%", cls: utilClass},
+      {label: "Buffer", value: summary.bufferDevDays + " days", cls: summary.bufferDevDays < 0 ? "infeasible" : ""},
+      {label: "Delivered", value: summary.deliveredCount + " features", cls: "feasible"},
+      {label: "Deferred", value: summary.deferredCount, cls: summary.deferredCount > 0 ? "warning" : ""},
+      {label: "Dropped", value: summary.droppedCount, cls: summary.droppedCount > 0 ? "infeasible" : ""},
     ];
     metrics.forEach(m => {
       const card = document.createElement("div");

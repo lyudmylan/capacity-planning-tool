@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   applyEditableFieldsToPayload,
   buildPlanComparison,
+  buildSummaryModel,
   getUtilizationStatus,
   readEditableFieldsFromPayload,
 } from "../ui/app.js";
@@ -179,4 +180,51 @@ test("buildPlanComparison highlights selected-plan changes against the original 
   assert.equal(comparison.buffer_delta_tone, "better");
   assert.equal(comparison.utilization_delta_tone, "better");
   assert.equal(comparison.changed, true);
+});
+
+test("buildSummaryModel centers the selected feasible plan for capacity_check", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "capacity_check",
+    capacity_dev_days: 80,
+    baseline_plan: {
+      feasibility: false,
+      demand_dev_days: 88,
+      utilization: 1.1,
+      buffer_dev_days: -8,
+      bottleneck_functions: ["qa"],
+    },
+    selected_plan: {
+      feasibility: true,
+      demand_dev_days: 64,
+      utilization: 0.8,
+      buffer_dev_days: 16,
+      delivered_features: [{name: "Billing"}],
+      deferred_features: [],
+      dropped_features: [{name: "Theme Refresh"}],
+      bottleneck_functions: [],
+    },
+  });
+
+  assert.equal(summary.bannerText, "Selected plan is feasible");
+  assert.equal(summary.demandDevDays, 64);
+  assert.equal(summary.deliveredCount, 1);
+  assert.equal(summary.droppedCount, 1);
+});
+
+test("buildSummaryModel explains dependency-rule schedule failures", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "planning_schedule",
+    capacity_dev_days: 80,
+    feasibility: false,
+    demand_dev_days: 60,
+    utilization: 0.75,
+    buffer_dev_days: 20,
+    delivered_features: [],
+    deferred_features: [],
+    dropped_features: [],
+    dependency_rules_pass: false,
+    bottleneck_functions: [],
+  });
+
+  assert.equal(summary.bannerText, "Plan is infeasible — dependency rules fail");
 });
