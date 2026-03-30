@@ -145,6 +145,7 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
+        self.assertEqual(result["planning_mode"], "planning_schedule")
         self.assertIn("function_capacity_fit", result)
         self.assertIn("capacity_by_function", result)
         self.assertIn("demand_by_function", result)
@@ -154,6 +155,9 @@ class ServerApiTests(unittest.TestCase):
         self.assertIn("dependency_rules_pass", result)
         self.assertIn("dependency_violations", result)
         self.assertIn("selected_plan", result)
+        self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
+        self.assertIn("dependency_rules_pass", result["selected_plan"])
+        self.assertIn("dependency_violations", result["selected_plan"])
 
     def test_plan_planning_schedule_dependency_only_example(self) -> None:
         data = self._load_example("v2_rd_org_planning_schedule_dependency_only.json")
@@ -164,12 +168,14 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
+        self.assertEqual(result["planning_mode"], "planning_schedule")
         self.assertEqual(
             result["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},
         )
         self.assertFalse(result["dependency_rules_pass"])
         self.assertIn("qa dependency rule failed", result["dependency_violations"][0])
+        self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
 
     def test_plan_invalid_json_body(self) -> None:
         resp = self.client.post(
