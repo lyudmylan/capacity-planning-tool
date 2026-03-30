@@ -90,12 +90,16 @@ make check
   The human-readable guide for the future JSON-first UI contract.
 - [`.codex/skills/github-shipping/SKILL.md`](.codex/skills/github-shipping/SKILL.md)
   Shared shipping workflow skill for collaborators using Codex-style tooling.
-- [`.codex/prompts/`](.codex/prompts)
-  Shared prompt shortcuts for shipping, review, and Claude UI delegation.
+- [`.codex/skills/repo-review/SKILL.md`](.codex/skills/repo-review/SKILL.md)
+  Findings-first repo review skill for PRs and code changes.
+- [`.codex/skills/ui-handoff/SKILL.md`](.codex/skills/ui-handoff/SKILL.md)
+  UI implementation skill aligned to the repo's JSON UI handoff spec.
 - [`AGENTS.md`](AGENTS.md)
   Minimal repository instructions for agents working in this codebase.
 - [`specs/ui_handoff_v1.json`](specs/ui_handoff_v1.json)
   Machine-readable UI handoff spec for agent-built and human-facing interfaces.
+
+Repo-local skills are the supported Codex workflow surface for this repo. Legacy prompt shortcuts are intentionally removed so shipping, review, and UI delegation guidance live in one place.
 
 ## Project Rules
 

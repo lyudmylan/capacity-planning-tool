@@ -22,8 +22,10 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
   Covers planning calculations, defaults, prioritization, CLI behavior, and web API.
 - `.codex/skills/github-shipping/SKILL.md`
   Shared repo shipping workflow skill that can be reused by collaborators.
-- `.codex/prompts/`
-  Shared prompt shortcuts for shipping, review, and Claude UI delegation.
+- `.codex/skills/repo-review/SKILL.md`
+  Shared repo review skill for findings-first code and PR reviews.
+- `.codex/skills/ui-handoff/SKILL.md`
+  Shared UI implementation skill grounded in the repo's JSON spec and planner contract.
 - `docs/product.md`
   Living product overview, current scope, and next-step direction.
 - `docs/assumptions.md`
@@ -64,6 +66,11 @@ This project provides a JSON-in / JSON-out CLI for capacity planning. It evaluat
 - For UI work, follow `specs/ui_handoff_v1.json` and `docs/ui_json_spec.md` as the shipped v2 UI source of truth.
 - Keep the planner as the source of truth for calculations and output JSON.
 - If the shipped UI input or output contract changes, update the spec files and `tests/test_ui_spec.py` in the same change.
+
+## Codex Workflow
+
+- Repo-local skills are the supported Codex workflow surface for this repo.
+- Legacy prompt shortcuts are intentionally removed rather than maintained in parallel with skills.
 
 ## Extension Notes
 
