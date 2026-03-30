@@ -785,6 +785,7 @@ def _run_agentic_replanning_loop(
 
 def _build_risks(
     *,
+    planning_mode: str,
     baseline_feasibility: bool,
     baseline_utilization: float,
     baseline_buffer_dev_days: float,
@@ -793,18 +794,31 @@ def _build_risks(
     defaults: DefaultsConfig,
 ) -> list[str]:
     risks: list[str] = []
-    if not baseline_feasibility:
+    if not baseline_feasibility and planning_mode == "planning_schedule":
+        if selected_plan.bottleneck_functions:
+            risks.append(
+                "Function capacity is insufficient for: "
+                + ", ".join(selected_plan.bottleneck_functions)
+                + "."
+            )
+        elif not selected_plan.dependency_rules_pass:
+            risks.append(
+                "Schedule dependency rules prevent completion within the selected horizon."
+            )
+    elif not baseline_feasibility:
         risks.append("Roadmap demand exceeds available capacity for the selected horizon.")
-    if baseline_utilization > defaults.utilization_target_max:
-        risks.append(
-            "Utilization is above the target range, leaving little room for interruptions."
-        )
-    if 0 <= baseline_utilization < defaults.utilization_target_min:
-        risks.append(
-            "Utilization is below the target range, which may indicate under-committed capacity."
-        )
-    if baseline_buffer_dev_days < capacity_dev_days * defaults.buffer_target_ratio:
-        risks.append("Buffer is below the target threshold, increasing delivery risk.")
+    if planning_mode != "planning_schedule" or baseline_feasibility:
+        if baseline_utilization > defaults.utilization_target_max:
+            risks.append(
+                "Utilization is above the target range, leaving little room for interruptions."
+            )
+        if 0 <= baseline_utilization < defaults.utilization_target_min:
+            risks.append(
+                "Utilization is below the target range, which may indicate "
+                "under-committed capacity."
+            )
+        if baseline_buffer_dev_days < capacity_dev_days * defaults.buffer_target_ratio:
+            risks.append("Buffer is below the target threshold, increasing delivery risk.")
     risks.extend(selected_plan.dependency_violations)
     risks.extend(selected_plan.business_goal_assessment["hard_constraint_violations"])
     risks.extend(selected_plan.business_goal_assessment["soft_goal_violations"])
@@ -813,12 +827,28 @@ def _build_risks(
 
 def _build_suggestions(
     *,
+    planning_mode: str,
     baseline_feasibility: bool,
     selected_plan: EvaluatedPlan,
     capacity_dev_days: float,
     defaults: DefaultsConfig,
 ) -> list[str]:
     if not baseline_feasibility and not selected_plan.removed_features:
+        if planning_mode == "planning_schedule":
+            if selected_plan.bottleneck_functions:
+                bottlenecks = ", ".join(selected_plan.bottleneck_functions)
+                return [
+                    (
+                        "Increase capacity or reduce scope for the bottleneck "
+                        f"functions: {bottlenecks}."
+                    )
+                ]
+            return [
+                (
+                    "Increase downstream capacity, reduce dependent scope, or relax "
+                    "schedule policy assumptions to satisfy planning constraints."
+                )
+            ]
         return [
             (
                 "Adjust staffing, scope, or schedule policy assumptions to satisfy "
@@ -856,6 +886,7 @@ def _build_suggestions(
 
 def _build_tradeoff_summary(
     *,
+    planning_mode: str,
     baseline_feasibility: bool,
     selected_plan: EvaluatedPlan,
     original_demand_dev_days: float,
@@ -867,6 +898,19 @@ def _build_tradeoff_summary(
         ]
 
     if not baseline_feasibility and not selected_plan.removed_features:
+        if planning_mode == "planning_schedule":
+            if selected_plan.bottleneck_functions:
+                return [
+                    "The roadmap does not fit the available function capacity for: "
+                    + ", ".join(selected_plan.bottleneck_functions)
+                    + "."
+                ]
+            return [
+                (
+                    "The roadmap fits function capacity but cannot finish within the selected "
+                    "horizon once schedule dependency rules are applied."
+                )
+            ]
         return [
             (
                 "The current roadmap does not satisfy the planning constraints for the selected "
@@ -959,6 +1003,7 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
             "evaluated_alternatives": evaluated_alternatives,
             "agentic_iterations": agentic_iterations,
             "risks": _build_risks(
+                planning_mode=planning_input.planning_mode,
                 baseline_feasibility=baseline_plan.feasibility,
                 baseline_utilization=baseline_plan.utilization,
                 baseline_buffer_dev_days=baseline_plan.buffer_dev_days,
@@ -967,12 +1012,14 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
                 defaults=defaults,
             ),
             "suggestions": _build_suggestions(
+                planning_mode=planning_input.planning_mode,
                 baseline_feasibility=baseline_plan.feasibility,
                 selected_plan=selected_plan,
                 capacity_dev_days=capacity_dev_days,
                 defaults=defaults,
             ),
             "tradeoff_summary": _build_tradeoff_summary(
+                planning_mode=planning_input.planning_mode,
                 baseline_feasibility=baseline_plan.feasibility,
                 selected_plan=selected_plan,
                 original_demand_dev_days=baseline_plan.demand_dev_days,
@@ -1011,6 +1058,7 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
         "evaluated_alternatives": evaluated_alternatives,
         "agentic_iterations": agentic_iterations,
         "risks": _build_risks(
+            planning_mode=planning_input.planning_mode,
             baseline_feasibility=baseline_plan.feasibility,
             baseline_utilization=baseline_plan.utilization,
             baseline_buffer_dev_days=baseline_plan.buffer_dev_days,
@@ -1019,12 +1067,14 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
             defaults=defaults,
         ),
         "suggestions": _build_suggestions(
+            planning_mode=planning_input.planning_mode,
             baseline_feasibility=baseline_plan.feasibility,
             selected_plan=selected_plan,
             capacity_dev_days=capacity_dev_days,
             defaults=defaults,
         ),
         "tradeoff_summary": _build_tradeoff_summary(
+            planning_mode=planning_input.planning_mode,
             baseline_feasibility=baseline_plan.feasibility,
             selected_plan=selected_plan,
             original_demand_dev_days=baseline_plan.demand_dev_days,
