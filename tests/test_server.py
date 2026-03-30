@@ -13,14 +13,48 @@ class ServerApiTests(unittest.TestCase):
     """Tests for /api/plan and /api/examples endpoints."""
 
     CAPACITY_CHECK_OUTPUT_KEYS = {
+        "planning_mode",
+        "capacity_dev_days",
+        "capacity_by_function",
+        "baseline_plan",
+        "selected_plan",
+        "evaluated_alternatives",
+        "agentic_iterations",
+        "risks",
+        "suggestions",
+        "tradeoff_summary",
+    }
+
+    EVALUATED_PLAN_OUTPUT_KEYS = {
         "capacity_dev_days",
         "demand_dev_days",
         "utilization",
-        "planning_mode",
         "capacity_by_function",
         "demand_by_function",
         "utilization_by_function",
         "buffer_by_function",
+        "planning_mode",
+        "function_capacity_fit",
+        "bottleneck_functions",
+        "feasibility",
+        "buffer_dev_days",
+        "acceptable",
+        "goal_compliant",
+        "delivered_features",
+        "deferred_features",
+        "dropped_features",
+        "business_goal_assessment",
+    }
+
+    PLANNING_SCHEDULE_OUTPUT_KEYS = {
+        "capacity_dev_days",
+        "demand_dev_days",
+        "utilization",
+        "capacity_by_function",
+        "demand_by_function",
+        "utilization_by_function",
+        "buffer_by_function",
+        "planning_mode",
         "function_capacity_fit",
         "bottleneck_functions",
         "feasibility",
@@ -35,9 +69,11 @@ class ServerApiTests(unittest.TestCase):
         "risks",
         "suggestions",
         "tradeoff_summary",
+        "dependency_rules_pass",
+        "dependency_violations",
     }
 
-    PLANNING_SCHEDULE_OUTPUT_KEYS = CAPACITY_CHECK_OUTPUT_KEYS | {
+    PLANNING_SCHEDULE_PLAN_OUTPUT_KEYS = EVALUATED_PLAN_OUTPUT_KEYS | {
         "dependency_rules_pass",
         "dependency_violations",
     }
@@ -54,46 +90,19 @@ class ServerApiTests(unittest.TestCase):
 
     def _assert_capacity_check_contract(self, result: dict) -> None:
         self.assertEqual(result["planning_mode"], "capacity_check")
-        self.assertEqual(result["planning_mode"], "capacity_check")
-        self.assertIn("capacity_dev_days", result)
-        self.assertIn("capacity_by_function", result)
-        self.assertIn("baseline_plan", result)
-        self.assertIn("selected_plan", result)
-        self.assertIn("evaluated_alternatives", result)
-        self.assertIn("agentic_iterations", result)
-        self.assertIn("risks", result)
-        self.assertIn("suggestions", result)
-        self.assertIn("tradeoff_summary", result)
-        self.assertNotIn("demand_dev_days", result)
-        self.assertNotIn("utilization", result)
-        self.assertNotIn("demand_by_function", result)
-        self.assertNotIn("utilization_by_function", result)
-        self.assertNotIn("buffer_by_function", result)
-        self.assertNotIn("function_capacity_fit", result)
-        self.assertNotIn("bottleneck_functions", result)
-        self.assertNotIn("feasibility", result)
-        self.assertNotIn("buffer_dev_days", result)
-        self.assertNotIn("delivered_features", result)
-        self.assertNotIn("deferred_features", result)
-        self.assertNotIn("dropped_features", result)
-        self.assertNotIn("business_goal_assessment", result)
-        self.assertNotIn("dependency_rules_pass", result)
-        self.assertNotIn("dependency_violations", result)
+        self.assertEqual(set(result), self.CAPACITY_CHECK_OUTPUT_KEYS)
+        self.assertEqual(set(result["baseline_plan"]), self.EVALUATED_PLAN_OUTPUT_KEYS)
+        self.assertEqual(set(result["selected_plan"]), self.EVALUATED_PLAN_OUTPUT_KEYS)
         self.assertEqual(result["baseline_plan"]["planning_mode"], "capacity_check")
         self.assertEqual(result["selected_plan"]["planning_mode"], "capacity_check")
-        self.assertNotIn("dependency_rules_pass", result["baseline_plan"])
-        self.assertNotIn("dependency_violations", result["baseline_plan"])
-        self.assertNotIn("dependency_rules_pass", result["selected_plan"])
-        self.assertNotIn("dependency_violations", result["selected_plan"])
 
     def _assert_planning_schedule_contract(self, result: dict) -> None:
-        self.assertTrue(self.PLANNING_SCHEDULE_OUTPUT_KEYS.issubset(set(result.keys())))
+        self.assertEqual(set(result), self.PLANNING_SCHEDULE_OUTPUT_KEYS)
         self.assertEqual(result["planning_mode"], "planning_schedule")
-        self.assertIn("dependency_rules_pass", result)
-        self.assertIn("dependency_violations", result)
+        self.assertEqual(
+            set(result["selected_plan"]), self.PLANNING_SCHEDULE_PLAN_OUTPUT_KEYS
+        )
         self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
-        self.assertIn("dependency_rules_pass", result["selected_plan"])
-        self.assertIn("dependency_violations", result["selected_plan"])
 
     def test_index_returns_html(self) -> None:
         resp = self.client.get("/")
