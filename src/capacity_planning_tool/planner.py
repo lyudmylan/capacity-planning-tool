@@ -904,15 +904,6 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
         defaults=defaults,
     )
 
-    demand_dev_days = baseline_plan.demand_dev_days
-    utilization = baseline_plan.utilization
-    buffer_dev_days = baseline_plan.buffer_dev_days
-    function_capacity_fit = baseline_plan.function_capacity_fit
-    bottleneck_functions = baseline_plan.bottleneck_functions
-    dependency_rules_pass = baseline_plan.dependency_rules_pass
-    dependency_violations = baseline_plan.dependency_violations
-    feasibility = baseline_plan.feasibility
-
     if planning_input.planning_mode == "planning_schedule":
         selected_plan = baseline_plan
         evaluated_alternatives: list[dict[str, Any]] = []
@@ -926,19 +917,65 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
             defaults=defaults,
         )
 
+    baseline_serialized = _serialize_evaluated_plan(
+        baseline_plan,
+        planning_mode=planning_input.planning_mode,
+        capacity_dev_days=capacity_dev_days,
+        capacity_by_function=capacity_by_function,
+        precision=precision,
+    )
+    selected_serialized = _serialize_evaluated_plan(
+        selected_plan,
+        planning_mode=planning_input.planning_mode,
+        capacity_dev_days=capacity_dev_days,
+        capacity_by_function=capacity_by_function,
+        precision=precision,
+    )
+
+    if planning_input.planning_mode == "capacity_check":
+        return {
+            "planning_mode": planning_input.planning_mode,
+            "capacity_dev_days": capacity_dev_days,
+            "capacity_by_function": capacity_by_function,
+            "baseline_plan": baseline_serialized,
+            "selected_plan": selected_serialized,
+            "evaluated_alternatives": evaluated_alternatives,
+            "agentic_iterations": agentic_iterations,
+            "risks": _build_risks(
+                baseline_feasibility=baseline_plan.feasibility,
+                baseline_utilization=baseline_plan.utilization,
+                baseline_buffer_dev_days=baseline_plan.buffer_dev_days,
+                capacity_dev_days=capacity_dev_days,
+                selected_plan=selected_plan,
+                defaults=defaults,
+            ),
+            "suggestions": _build_suggestions(
+                baseline_feasibility=baseline_plan.feasibility,
+                selected_plan=selected_plan,
+                capacity_dev_days=capacity_dev_days,
+                defaults=defaults,
+            ),
+            "tradeoff_summary": _build_tradeoff_summary(
+                baseline_feasibility=baseline_plan.feasibility,
+                selected_plan=selected_plan,
+                original_demand_dev_days=baseline_plan.demand_dev_days,
+                capacity_dev_days=capacity_dev_days,
+            ),
+        }
+
     result = {
         "capacity_dev_days": capacity_dev_days,
-        "demand_dev_days": demand_dev_days,
-        "utilization": utilization,
+        "demand_dev_days": baseline_plan.demand_dev_days,
+        "utilization": baseline_plan.utilization,
         "capacity_by_function": capacity_by_function,
         "demand_by_function": baseline_plan.demand_by_function,
         "utilization_by_function": baseline_plan.utilization_by_function,
         "buffer_by_function": baseline_plan.buffer_by_function,
         "planning_mode": planning_input.planning_mode,
-        "function_capacity_fit": function_capacity_fit,
-        "bottleneck_functions": list(bottleneck_functions),
-        "feasibility": feasibility,
-        "buffer_dev_days": buffer_dev_days,
+        "function_capacity_fit": baseline_plan.function_capacity_fit,
+        "bottleneck_functions": list(baseline_plan.bottleneck_functions),
+        "feasibility": baseline_plan.feasibility,
+        "buffer_dev_days": baseline_plan.buffer_dev_days,
         "delivered_features": _serialize_feature_list(
             selected_plan.delivered_features, precision=precision
         ),
@@ -952,38 +989,32 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
             for feature in selected_plan.removed_features
             if feature.feature.priority == "Low"
         ],
-        "selected_plan": _serialize_evaluated_plan(
-            selected_plan,
-            planning_mode=planning_input.planning_mode,
-            capacity_dev_days=capacity_dev_days,
-            capacity_by_function=capacity_by_function,
-            precision=precision,
-        ),
+        "selected_plan": selected_serialized,
         "business_goal_assessment": selected_plan.business_goal_assessment,
         "evaluated_alternatives": evaluated_alternatives,
         "agentic_iterations": agentic_iterations,
         "risks": _build_risks(
-            baseline_feasibility=feasibility,
-            baseline_utilization=utilization,
-            baseline_buffer_dev_days=buffer_dev_days,
+            baseline_feasibility=baseline_plan.feasibility,
+            baseline_utilization=baseline_plan.utilization,
+            baseline_buffer_dev_days=baseline_plan.buffer_dev_days,
             capacity_dev_days=capacity_dev_days,
             selected_plan=selected_plan,
             defaults=defaults,
         ),
         "suggestions": _build_suggestions(
-            baseline_feasibility=feasibility,
+            baseline_feasibility=baseline_plan.feasibility,
             selected_plan=selected_plan,
             capacity_dev_days=capacity_dev_days,
             defaults=defaults,
         ),
         "tradeoff_summary": _build_tradeoff_summary(
-            baseline_feasibility=feasibility,
+            baseline_feasibility=baseline_plan.feasibility,
             selected_plan=selected_plan,
-            original_demand_dev_days=demand_dev_days,
+            original_demand_dev_days=baseline_plan.demand_dev_days,
             capacity_dev_days=capacity_dev_days,
         ),
     }
     if planning_input.planning_mode == "planning_schedule":
-        result["dependency_rules_pass"] = dependency_rules_pass
-        result["dependency_violations"] = list(dependency_violations)
+        result["dependency_rules_pass"] = baseline_plan.dependency_rules_pass
+        result["dependency_violations"] = list(baseline_plan.dependency_violations)
     return result

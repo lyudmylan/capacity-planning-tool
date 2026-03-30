@@ -53,11 +53,36 @@ class ServerApiTests(unittest.TestCase):
             return json.load(f)
 
     def _assert_capacity_check_contract(self, result: dict) -> None:
-        self.assertTrue(self.CAPACITY_CHECK_OUTPUT_KEYS.issubset(set(result.keys())))
         self.assertEqual(result["planning_mode"], "capacity_check")
+        self.assertEqual(result["planning_mode"], "capacity_check")
+        self.assertIn("capacity_dev_days", result)
+        self.assertIn("capacity_by_function", result)
+        self.assertIn("baseline_plan", result)
+        self.assertIn("selected_plan", result)
+        self.assertIn("evaluated_alternatives", result)
+        self.assertIn("agentic_iterations", result)
+        self.assertIn("risks", result)
+        self.assertIn("suggestions", result)
+        self.assertIn("tradeoff_summary", result)
+        self.assertNotIn("demand_dev_days", result)
+        self.assertNotIn("utilization", result)
+        self.assertNotIn("demand_by_function", result)
+        self.assertNotIn("utilization_by_function", result)
+        self.assertNotIn("buffer_by_function", result)
+        self.assertNotIn("function_capacity_fit", result)
+        self.assertNotIn("bottleneck_functions", result)
+        self.assertNotIn("feasibility", result)
+        self.assertNotIn("buffer_dev_days", result)
+        self.assertNotIn("delivered_features", result)
+        self.assertNotIn("deferred_features", result)
+        self.assertNotIn("dropped_features", result)
+        self.assertNotIn("business_goal_assessment", result)
         self.assertNotIn("dependency_rules_pass", result)
         self.assertNotIn("dependency_violations", result)
+        self.assertEqual(result["baseline_plan"]["planning_mode"], "capacity_check")
         self.assertEqual(result["selected_plan"]["planning_mode"], "capacity_check")
+        self.assertNotIn("dependency_rules_pass", result["baseline_plan"])
+        self.assertNotIn("dependency_violations", result["baseline_plan"])
         self.assertNotIn("dependency_rules_pass", result["selected_plan"])
         self.assertNotIn("dependency_violations", result["selected_plan"])
 
@@ -97,22 +122,9 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
-        self.assertIn("capacity_dev_days", result)
-        self.assertIn("demand_dev_days", result)
-        self.assertIn("utilization", result)
-        self.assertIn("feasibility", result)
-        self.assertIn("buffer_dev_days", result)
-        self.assertIn("delivered_features", result)
-        self.assertIn("deferred_features", result)
-        self.assertIn("dropped_features", result)
-        self.assertIn("selected_plan", result)
-        self.assertIn("business_goal_assessment", result)
-        self.assertIn("evaluated_alternatives", result)
-        self.assertIn("agentic_iterations", result)
-        self.assertIn("risks", result)
-        self.assertIn("suggestions", result)
-        self.assertIn("tradeoff_summary", result)
-        self.assertTrue(result["feasibility"])
+        self._assert_capacity_check_contract(result)
+        self.assertTrue(result["baseline_plan"]["feasibility"])
+        self.assertTrue(result["selected_plan"]["feasibility"])
 
     def test_plan_infeasible_input(self) -> None:
         data = self._load_example("infeasible_plan.json")
@@ -123,7 +135,9 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
-        self.assertFalse(result["feasibility"])
+        self._assert_capacity_check_contract(result)
+        self.assertFalse(result["baseline_plan"]["feasibility"])
+        self.assertTrue(result["selected_plan"]["goal_compliant"])
 
     def test_plan_goal_driven_input(self) -> None:
         data = self._load_example("goal_driven_plan.json")
@@ -134,7 +148,8 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
-        self.assertIn("business_goal_assessment", result)
+        self._assert_capacity_check_contract(result)
+        self.assertIn("business_goal_assessment", result["selected_plan"])
 
     def test_plan_v2_capacity_check_input(self) -> None:
         data = self._load_example("v2_rd_org_capacity_check.json")
@@ -147,14 +162,10 @@ class ServerApiTests(unittest.TestCase):
         result = resp.get_json()
         self._assert_capacity_check_contract(result)
         self.assertEqual(
-            result["function_capacity_fit"],
+            result["baseline_plan"]["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},
         )
-        self.assertIn("capacity_by_function", result)
-        self.assertIn("demand_by_function", result)
-        self.assertIn("utilization_by_function", result)
-        self.assertIn("buffer_by_function", result)
-        self.assertEqual(result["bottleneck_functions"], [])
+        self.assertEqual(result["baseline_plan"]["bottleneck_functions"], [])
         self.assertEqual(
             result["selected_plan"]["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},
@@ -171,14 +182,10 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
         self._assert_capacity_check_contract(result)
-        self.assertIn("function_capacity_fit", result)
-        self.assertIn("capacity_by_function", result)
-        self.assertIn("demand_by_function", result)
-        self.assertIn("utilization_by_function", result)
-        self.assertIn("buffer_by_function", result)
-        self.assertIn("bottleneck_functions", result)
-        self.assertIn("selected_plan", result)
-        self.assertEqual(set(result["function_capacity_fit"]), {"eng", "qa", "devops"})
+        self.assertEqual(
+            set(result["baseline_plan"]["function_capacity_fit"]),
+            {"eng", "qa", "devops"},
+        )
 
     def test_plan_planning_schedule_returns_schedule_feasibility_payload(self) -> None:
         data = self._load_example("v2_rd_org_planning_schedule.json")

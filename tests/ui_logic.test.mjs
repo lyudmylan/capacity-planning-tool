@@ -89,10 +89,11 @@ test("buildPlanComparison highlights selected-plan changes against the original 
       },
     },
     {
-      demand_dev_days: 88,
-      utilization: 1.06,
-      buffer_dev_days: -4.8,
-      deferred_features: [],
+      baseline_plan: {
+        demand_dev_days: 88,
+        utilization: 1.06,
+        buffer_dev_days: -4.8,
+      },
       dropped_features: [{name: "Theme Refresh"}],
       selected_plan: {
         demand_dev_days: 64,
@@ -102,6 +103,8 @@ test("buildPlanComparison highlights selected-plan changes against the original 
           {name: "Billing"},
           {name: "Export"},
         ],
+        deferred_features: [],
+        dropped_features: [{name: "Theme Refresh"}],
       },
     }
   );

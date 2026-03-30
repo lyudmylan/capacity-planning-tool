@@ -30,9 +30,11 @@ class CliTests(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertEqual(completed.stderr, "")
         self.assertIn("capacity_dev_days", result)
-        self.assertEqual(result["deferred_features"], [])
+        self.assertEqual(result["planning_mode"], "capacity_check")
+        self.assertEqual(result["selected_plan"]["deferred_features"], [])
+        self.assertIn("baseline_plan", result)
         self.assertIn("selected_plan", result)
-        self.assertIn("business_goal_assessment", result)
+        self.assertIn("business_goal_assessment", result["selected_plan"])
 
     def test_cli_accepts_v2_rd_org_capacity_check_example(self) -> None:
         input_path = PROJECT_ROOT / "examples" / "v2_rd_org_capacity_check.json"
@@ -52,18 +54,19 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result["planning_mode"], "capacity_check")
         self.assertIn("capacity_dev_days", result)
         self.assertIn("capacity_by_function", result)
-        self.assertIn("demand_by_function", result)
-        self.assertIn("utilization_by_function", result)
-        self.assertIn("buffer_by_function", result)
-        self.assertIn("function_capacity_fit", result)
-        self.assertIn("bottleneck_functions", result)
+        self.assertIn("baseline_plan", result)
+        self.assertNotIn("demand_by_function", result)
+        self.assertNotIn("utilization_by_function", result)
+        self.assertNotIn("buffer_by_function", result)
+        self.assertNotIn("function_capacity_fit", result)
+        self.assertNotIn("bottleneck_functions", result)
         self.assertNotIn("dependency_rules_pass", result)
         self.assertNotIn("dependency_violations", result)
         self.assertEqual(
-            result["function_capacity_fit"],
+            result["baseline_plan"]["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},
         )
-        self.assertEqual(result["bottleneck_functions"], [])
+        self.assertEqual(result["baseline_plan"]["bottleneck_functions"], [])
 
     def test_cli_accepts_v2_function_estimates_capacity_check_example(self) -> None:
         input_path = PROJECT_ROOT / "examples" / "v2_function_estimates_capacity_check.json"
@@ -83,14 +86,18 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result["planning_mode"], "capacity_check")
         self.assertIn("capacity_dev_days", result)
         self.assertIn("capacity_by_function", result)
-        self.assertIn("demand_by_function", result)
-        self.assertIn("utilization_by_function", result)
-        self.assertIn("buffer_by_function", result)
+        self.assertIn("baseline_plan", result)
         self.assertIn("selected_plan", result)
-        self.assertIn("function_capacity_fit", result)
+        self.assertNotIn("demand_by_function", result)
+        self.assertNotIn("utilization_by_function", result)
+        self.assertNotIn("buffer_by_function", result)
+        self.assertNotIn("function_capacity_fit", result)
         self.assertNotIn("dependency_rules_pass", result)
         self.assertNotIn("dependency_violations", result)
-        self.assertEqual(set(result["function_capacity_fit"]), {"eng", "qa", "devops"})
+        self.assertEqual(
+            set(result["baseline_plan"]["function_capacity_fit"]),
+            {"eng", "qa", "devops"},
+        )
 
     def test_cli_accepts_v2_rd_org_month_auto_capacity_check_example(self) -> None:
         input_path = PROJECT_ROOT / "examples" / "v2_rd_org_month_auto_capacity_check.json"
@@ -169,7 +176,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("tradeoff_summary", result)
             self.assertIn("agentic_iterations", result)
             self.assertEqual(
-                [feature["name"] for feature in result["dropped_features"]],
+                [feature["name"] for feature in result["selected_plan"]["dropped_features"]],
                 ["Theme Refresh"],
             )
 
@@ -220,7 +227,7 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(completed.stderr, "")
         result = json.loads(completed.stdout)
-        self.assertFalse(result["feasibility"])
+        self.assertFalse(result["baseline_plan"]["feasibility"])
 
     def test_cli_reports_output_write_errors_cleanly(self) -> None:
         input_path = PROJECT_ROOT / "examples" / "feasible_plan.json"

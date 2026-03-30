@@ -33,28 +33,36 @@ class PlannerTests(unittest.TestCase):
     def test_feasible_plan_keeps_all_features_delivered(self) -> None:
         result = plan_capacity(_load_input("feasible_plan.json"), load_defaults())
 
-        self.assertTrue(result["feasibility"])
-        self.assertEqual(len(result["delivered_features"]), 3)
-        self.assertEqual(result["deferred_features"], [])
-        self.assertEqual(result["dropped_features"], [])
-        self.assertGreater(result["buffer_dev_days"], 0)
+        self.assertEqual(result["planning_mode"], "capacity_check")
+        self.assertIn("baseline_plan", result)
+        self.assertIn("selected_plan", result)
+        self.assertTrue(result["baseline_plan"]["feasibility"])
+        self.assertEqual(len(result["selected_plan"]["delivered_features"]), 3)
+        self.assertEqual(result["selected_plan"]["deferred_features"], [])
+        self.assertEqual(result["selected_plan"]["dropped_features"], [])
+        self.assertGreater(result["selected_plan"]["buffer_dev_days"], 0)
         self.assertTrue(result["selected_plan"]["goal_compliant"])
-        self.assertEqual(result["business_goal_assessment"]["missing_must_deliver_feature_ids"], [])
+        self.assertEqual(
+            result["selected_plan"]["business_goal_assessment"][
+                "missing_must_deliver_feature_ids"
+            ],
+            [],
+        )
 
     def test_infeasible_plan_recommends_lowest_priority_largest_first(self) -> None:
         result = plan_capacity(_load_input("infeasible_plan.json"), load_defaults())
 
-        self.assertFalse(result["feasibility"])
+        self.assertFalse(result["baseline_plan"]["feasibility"])
         self.assertEqual(
-            [feature["name"] for feature in result["dropped_features"]],
+            [feature["name"] for feature in result["selected_plan"]["dropped_features"]],
             ["Theme Refresh"],
         )
         self.assertEqual(
-            [feature["name"] for feature in result["deferred_features"]],
+            [feature["name"] for feature in result["selected_plan"]["deferred_features"]],
             ["Audit Trail"],
         )
         self.assertEqual(
-            [feature["name"] for feature in result["delivered_features"]],
+            [feature["name"] for feature in result["selected_plan"]["delivered_features"]],
             ["New Billing Engine", "Reporting API"],
         )
         self.assertTrue(result["selected_plan"]["goal_compliant"])
@@ -102,15 +110,18 @@ class PlannerTests(unittest.TestCase):
         result = plan_capacity(planning_input, load_defaults())
         self.assertEqual(result["planning_mode"], "capacity_check")
         self.assertEqual(result["capacity_dev_days"], 8.0)
-        self.assertEqual(result["demand_dev_days"], 8.0)
+        self.assertEqual(result["baseline_plan"]["demand_dev_days"], 8.0)
         self.assertEqual(
-            result["function_capacity_fit"],
+            result["baseline_plan"]["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},
         )
-        self.assertEqual(result["bottleneck_functions"], [])
+        self.assertEqual(result["baseline_plan"]["bottleneck_functions"], [])
         self.assertNotIn("dependency_rules_pass", result)
         self.assertNotIn("dependency_violations", result)
-        self.assertEqual(result["business_goal_assessment"]["must_deliver_feature_ids"], [])
+        self.assertEqual(
+            result["selected_plan"]["business_goal_assessment"]["must_deliver_feature_ids"],
+            [],
+        )
 
     def test_invalid_unavailable_days_raise_validation_error(self) -> None:
         with self.assertRaises(ValueError):
@@ -150,13 +161,13 @@ class PlannerTests(unittest.TestCase):
             {"feature-1", "feature-5", "feature-7", "feature-8"}.issubset(
                 {
                     feature["id"]
-                    for feature in result["delivered_features"]
+                    for feature in result["selected_plan"]["delivered_features"]
                     if "id" in feature
                 }
             )
         )
         self.assertEqual(
-            [feature["id"] for feature in result["dropped_features"]],
+            [feature["id"] for feature in result["selected_plan"]["dropped_features"]],
             ["feature-9"],
         )
         self.assertTrue(result["selected_plan"]["acceptable"])
@@ -948,7 +959,7 @@ class PlannerTests(unittest.TestCase):
 
         result = plan_capacity(planning_input, load_defaults())
         self.assertIn("capacity_dev_days", result)
-        self.assertTrue(result["feasibility"])
+        self.assertTrue(result["baseline_plan"]["feasibility"])
 
     def test_rd_org_duplicate_member_ids_raise_validation_error(self) -> None:
         with self.assertRaises(ValueError):
@@ -2259,12 +2270,12 @@ class PlannerTests(unittest.TestCase):
             load_defaults(),
         )
 
-        self.assertFalse(result["feasibility"])
+        self.assertFalse(result["baseline_plan"]["feasibility"])
         self.assertEqual(
-            result["function_capacity_fit"],
+            result["baseline_plan"]["function_capacity_fit"],
             {"eng": True, "qa": False, "devops": True},
         )
-        self.assertEqual(result["bottleneck_functions"], ["qa"])
+        self.assertEqual(result["baseline_plan"]["bottleneck_functions"], ["qa"])
         self.assertFalse(result["selected_plan"]["feasibility"])
         self.assertEqual(
             result["selected_plan"]["function_capacity_fit"],
@@ -2342,8 +2353,8 @@ class PlannerTests(unittest.TestCase):
             load_defaults(),
         )
 
-        self.assertFalse(result["feasibility"])
-        self.assertEqual(result["bottleneck_functions"], ["qa"])
+        self.assertFalse(result["baseline_plan"]["feasibility"])
+        self.assertEqual(result["baseline_plan"]["bottleneck_functions"], ["qa"])
         self.assertTrue(result["selected_plan"]["feasibility"])
         self.assertEqual(
             result["selected_plan"]["function_capacity_fit"],
@@ -2351,11 +2362,11 @@ class PlannerTests(unittest.TestCase):
         )
         self.assertEqual(result["selected_plan"]["bottleneck_functions"], [])
         self.assertEqual(
-            [feature["name"] for feature in result["deferred_features"]],
+            [feature["name"] for feature in result["selected_plan"]["deferred_features"]],
             [],
         )
         self.assertEqual(
-            [feature["name"] for feature in result["dropped_features"]],
+            [feature["name"] for feature in result["selected_plan"]["dropped_features"]],
             ["QA Heavy"],
         )
 
@@ -2369,50 +2380,51 @@ class PlannerTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            result["demand_by_function"],
+            result["baseline_plan"]["demand_by_function"],
             {"eng": 32.0, "qa": 16.0, "devops": 8.0},
         )
         self.assertEqual(result["planning_mode"], "capacity_check")
+        self.assertEqual(set(result["capacity_by_function"]), {"eng", "qa", "devops"})
         self.assertEqual(
-            set(result["capacity_by_function"]),
+            set(result["baseline_plan"]["utilization_by_function"]),
             {"eng", "qa", "devops"},
         )
         self.assertEqual(
-            set(result["utilization_by_function"]),
+            set(result["baseline_plan"]["buffer_by_function"]),
             {"eng", "qa", "devops"},
         )
-        self.assertEqual(
-            set(result["buffer_by_function"]),
-            {"eng", "qa", "devops"},
-        )
+        self.assertIn("baseline_plan", result)
         self.assertEqual(
             result["selected_plan"]["capacity_by_function"],
             result["capacity_by_function"],
         )
         self.assertEqual(
             result["selected_plan"]["demand_by_function"],
-            result["demand_by_function"],
+            result["baseline_plan"]["demand_by_function"],
         )
         self.assertEqual(
             result["selected_plan"]["utilization_by_function"],
-            result["utilization_by_function"],
+            result["baseline_plan"]["utilization_by_function"],
         )
         self.assertEqual(
             result["selected_plan"]["buffer_by_function"],
-            result["buffer_by_function"],
+            result["baseline_plan"]["buffer_by_function"],
         )
         self.assertEqual(result["selected_plan"]["planning_mode"], "capacity_check")
         self.assertNotIn("dependency_rules_pass", result)
         self.assertNotIn("dependency_violations", result)
         self.assertNotIn("dependency_rules_pass", result["selected_plan"])
         self.assertNotIn("dependency_violations", result["selected_plan"])
+        self.assertNotIn("feasibility", result)
+        self.assertNotIn("demand_dev_days", result)
+        self.assertNotIn("function_capacity_fit", result)
 
         for function_name in ("eng", "qa", "devops"):
             self.assertEqual(
-                result["buffer_by_function"][function_name],
+                result["baseline_plan"]["buffer_by_function"][function_name],
                 round(
                     result["capacity_by_function"][function_name]
-                    - result["demand_by_function"][function_name],
+                    - result["baseline_plan"]["demand_by_function"][function_name],
                     2,
                 ),
             )
@@ -2519,10 +2531,10 @@ class PlannerTests(unittest.TestCase):
             load_defaults(),
         )
 
-        self.assertIsNone(result["utilization_by_function"]["qa"])
+        self.assertIsNone(result["baseline_plan"]["utilization_by_function"]["qa"])
         self.assertIsNone(result["selected_plan"]["utilization_by_function"]["qa"])
         self.assertEqual(result["capacity_by_function"]["qa"], 0.0)
-        self.assertEqual(result["demand_by_function"]["qa"], 16.0)
+        self.assertEqual(result["baseline_plan"]["demand_by_function"]["qa"], 16.0)
 
     def test_planning_schedule_returns_baseline_feasibility_without_replanning(self) -> None:
         result = plan_capacity(
