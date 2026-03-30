@@ -2560,7 +2560,21 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(result["dropped_features"], [])
         self.assertEqual(result["evaluated_alternatives"], [])
         self.assertEqual(result["agentic_iterations"], [])
+        self.assertFalse(result["business_goal_assessment"]["goal_compliant"])
+        self.assertFalse(result["business_goal_assessment"]["acceptable"])
+        self.assertIn(
+            "Plan is not feasible for the selected horizon.",
+            result["business_goal_assessment"]["hard_constraint_violations"],
+        )
         self.assertEqual(result["selected_plan"]["feasibility"], result["feasibility"])
+        self.assertFalse(result["selected_plan"]["goal_compliant"])
+        self.assertFalse(result["selected_plan"]["acceptable"])
+        self.assertFalse(result["selected_plan"]["business_goal_assessment"]["goal_compliant"])
+        self.assertFalse(result["selected_plan"]["business_goal_assessment"]["acceptable"])
+        self.assertIn(
+            "Plan is not feasible for the selected horizon.",
+            result["selected_plan"]["business_goal_assessment"]["hard_constraint_violations"],
+        )
         self.assertEqual(
             result["selected_plan"]["dependency_rules_pass"],
             result["dependency_rules_pass"],
@@ -2588,6 +2602,11 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(result["bottleneck_functions"], [])
         self.assertFalse(result["feasibility"])
         self.assertIn("qa dependency rule failed", result["dependency_violations"][0])
+        self.assertFalse(result["business_goal_assessment"]["goal_compliant"])
+        self.assertIn(
+            "Plan is not feasible for the selected horizon.",
+            result["business_goal_assessment"]["hard_constraint_violations"],
+        )
         self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
         self.assertIn("dependency_rules_pass", result["selected_plan"])
         self.assertIn("dependency_violations", result["selected_plan"])

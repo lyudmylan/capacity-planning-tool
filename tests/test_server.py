@@ -216,6 +216,13 @@ class ServerApiTests(unittest.TestCase):
         self.assertIn("dependency_rules_pass", result)
         self.assertIn("dependency_violations", result)
         self.assertIn("selected_plan", result)
+        self.assertFalse(result["business_goal_assessment"]["goal_compliant"])
+        self.assertIn(
+            "Plan is not feasible for the selected horizon.",
+            result["business_goal_assessment"]["hard_constraint_violations"],
+        )
+        self.assertFalse(result["selected_plan"]["goal_compliant"])
+        self.assertFalse(result["selected_plan"]["business_goal_assessment"]["goal_compliant"])
 
     def test_plan_planning_schedule_dependency_only_example(self) -> None:
         data = self._load_example("v2_rd_org_planning_schedule_dependency_only.json")
@@ -233,6 +240,11 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertFalse(result["dependency_rules_pass"])
         self.assertIn("qa dependency rule failed", result["dependency_violations"][0])
+        self.assertFalse(result["business_goal_assessment"]["goal_compliant"])
+        self.assertIn(
+            "Plan is not feasible for the selected horizon.",
+            result["business_goal_assessment"]["hard_constraint_violations"],
+        )
 
     def test_plan_invalid_json_body(self) -> None:
         resp = self.client.post(
