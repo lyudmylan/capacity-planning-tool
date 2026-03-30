@@ -502,7 +502,7 @@ def _evaluate_plan(
     buffer_dev_days = _buffer_dev_days(capacity_dev_days, demand_dev_days, precision=precision)
     dependency_rules_pass = dependency_evaluation.dependency_rules_pass
     feasibility = all(function_capacity_fit.values()) and dependency_rules_pass
-    business_goal_assessment = _build_business_goal_assessment(
+    scoring_business_goal_assessment = _build_business_goal_assessment(
         planning_input=planning_input,
         delivered_features=delivered_features,
         removed_features=removed_features,
@@ -511,8 +511,20 @@ def _evaluate_plan(
         capacity_dev_days=capacity_dev_days,
         defaults=defaults,
     )
-    acceptable = feasibility and business_goal_assessment["acceptable"]
-    goal_compliant = feasibility and business_goal_assessment["goal_compliant"]
+    acceptable = feasibility and scoring_business_goal_assessment["acceptable"]
+    goal_compliant = feasibility and scoring_business_goal_assessment["goal_compliant"]
+    business_goal_assessment = scoring_business_goal_assessment
+    if not feasibility:
+        hard_constraint_violations = list(
+            scoring_business_goal_assessment["hard_constraint_violations"]
+        )
+        infeasibility_message = "Plan is not feasible for the selected horizon."
+        if infeasibility_message not in hard_constraint_violations:
+            hard_constraint_violations.append(infeasibility_message)
+        business_goal_assessment = {
+            **scoring_business_goal_assessment,
+            "hard_constraint_violations": hard_constraint_violations,
+        }
     business_goal_assessment = {
         **business_goal_assessment,
         "acceptable": acceptable,
@@ -538,7 +550,7 @@ def _evaluate_plan(
         score=_plan_score(
             acceptable=acceptable,
             goal_compliant=goal_compliant,
-            business_goal_assessment=business_goal_assessment,
+            business_goal_assessment=scoring_business_goal_assessment,
             delivered_features=delivered_features,
             removed_features=removed_features,
             utilization=utilization,
