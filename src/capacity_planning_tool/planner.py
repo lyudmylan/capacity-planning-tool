@@ -577,12 +577,28 @@ def _removable_features(
         for feature in evaluated_plan.delivered_features
         if feature.feature.reference not in planning_input.business_goals.must_deliver_feature_ids
     ]
+    prioritized_bottlenecks = sorted(
+        evaluated_plan.bottleneck_functions,
+        key=lambda function_name: (
+            evaluated_plan.utilization_by_function.get(function_name) or 0.0
+        ),
+        reverse=True,
+    )
+
+    def demand_sort_value(feature: FeatureDemand) -> tuple[float, ...]:
+        if prioritized_bottlenecks:
+            return tuple(
+                -feature.demand_by_function.get(function_name, 0.0)
+                for function_name in prioritized_bottlenecks
+            ) + (-feature.demand_dev_days,)
+        return (-feature.demand_dev_days,)
+
     candidate_keys: dict[str, Callable[[FeatureDemand], Any]] = {
         "preserved_priority": lambda feature: (
             feature.feature.priority in planning_input.business_goals.preserve_priorities
         ),
         "defer_preference": lambda feature: defer_rank[feature.feature.priority],
-        "demand_desc": lambda feature: -feature.demand_dev_days,
+        "demand_desc": demand_sort_value,
         "original_index": lambda feature: feature.original_index,
     }
     return sorted(

@@ -2370,6 +2370,124 @@ class PlannerTests(unittest.TestCase):
             ["QA Heavy"],
         )
 
+    def test_replanning_prefilter_includes_non_eng_feature_that_resolves_qa_bottleneck(
+        self,
+    ) -> None:
+        result = plan_capacity(
+            PlanningInput.from_dict(
+                {
+                    "planning_mode": "capacity_check",
+                    "planning_horizon": "month",
+                    "calendar_year": 2026,
+                    "month_index": 5,
+                    "working_days": 20,
+                    "holidays_days": 0,
+                    "vacation_days": 0,
+                    "sick_days": 0,
+                    "rd_org": {
+                        "country_profiles": [
+                            {
+                                "id": "us",
+                                "country_code": "US",
+                                "working_day_rules": {"workweek": "mon-fri"},
+                                "holiday_calendar_rules": {"dates": []},
+                                "vacation_days_per_employee": 18,
+                                "sick_days_per_employee": 8
+                            }
+                        ],
+                        "teams": [
+                            {
+                                "name": "Core Product",
+                                "members": [
+                                    {
+                                        "id": "eng-1",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us"
+                                    },
+                                    {
+                                        "id": "eng-2",
+                                        "function": "eng",
+                                        "seniority": "Senior",
+                                        "country_profile": "us"
+                                    },
+                                    {
+                                        "id": "qa-1",
+                                        "function": "qa",
+                                        "seniority": "Mid",
+                                        "capacity_percent": 0.25,
+                                        "country_profile": "us"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "roadmap": {
+                        "features": [
+                            {
+                                "id": "must-ship",
+                                "name": "Must Ship",
+                                "estimates": {
+                                    "eng": "S"
+                                },
+                                "priority": "High"
+                            },
+                            {
+                                "id": "eng-a",
+                                "name": "Eng A",
+                                "estimates": {
+                                    "eng": "S"
+                                },
+                                "priority": "Low"
+                            },
+                            {
+                                "id": "eng-b",
+                                "name": "Eng B",
+                                "estimates": {
+                                    "eng": "S"
+                                },
+                                "priority": "Low"
+                            },
+                            {
+                                "id": "eng-c",
+                                "name": "Eng C",
+                                "estimates": {
+                                    "eng": "S"
+                                },
+                                "priority": "Low"
+                            },
+                            {
+                                "id": "qa-heavy",
+                                "name": "QA Heavy",
+                                "estimates": {
+                                    "qa": "M"
+                                },
+                                "priority": "Low"
+                            }
+                        ]
+                    },
+                    "business_goals": {
+                        "must_deliver_feature_ids": ["must-ship"]
+                    }
+                },
+                load_defaults(),
+            ),
+            load_defaults(),
+        )
+
+        self.assertFalse(result["baseline_plan"]["feasibility"])
+        self.assertEqual(result["baseline_plan"]["bottleneck_functions"], ["qa"])
+        self.assertTrue(result["selected_plan"]["feasibility"])
+        self.assertEqual(
+            result["selected_plan"]["function_capacity_fit"],
+            {"eng": True, "qa": True, "devops": True},
+        )
+        self.assertEqual(result["selected_plan"]["bottleneck_functions"], [])
+        self.assertIn(
+            "QA Heavy",
+            [feature["name"] for feature in result["selected_plan"]["dropped_features"]],
+        )
+
     def test_capacity_check_serializes_common_function_aware_outputs(self) -> None:
         result = plan_capacity(
             PlanningInput.from_dict(
