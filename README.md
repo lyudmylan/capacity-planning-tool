@@ -1,6 +1,6 @@
 # Capacity Planning Tool
 
-Capacity Planning Tool is a JSON-in / JSON-out planning CLI. The current version evaluates whether a roadmap fits within engineering capacity, supports explicit business goals, and uses a bounded replanning loop to recommend a better plan when the original scope does not fit.
+Capacity Planning Tool is a JSON-in / JSON-out planning CLI. The current version supports both the legacy single-pool planner shape and the shipped v2 `rd_org` modes, evaluates whether a roadmap fits within available capacity, keeps optional business-goal and bounded deterministic replanning support for `capacity_check`, and runs deterministic dependency-aware feasibility for `planning_schedule`.
 
 The living product overview now lives in [`docs/product.md`](docs/product.md). Use that file as the source of truth for current scope, constraints, and next steps.
 
@@ -19,8 +19,8 @@ PYTHONPATH=src python3 -m capacity_planning_tool.server
 The UI lets you:
 - Paste, upload, or drag-drop planning input JSON
 - Edit key planning fields in a structured form
-- Run the planner and inspect results (feasibility, utilization, scope decisions, business goals)
-- Compare the original roadmap against the selected plan to see how demand, utilization, buffer, and scope changed
+- Run the planner and inspect results (feasibility, utilization, scope decisions, function bottlenecks, business goals, dependency checks)
+- Compare the original roadmap against the selected plan to see how demand, utilization, buffer, and scope changed in `capacity_check`
 - Copy or download raw output JSON
 
 ### Architecture
@@ -48,6 +48,12 @@ and validation work while the planner is still transitioning from the legacy inp
 now demonstrate both v2 output modes, automatic working-day, holiday, vacation, and sick-day
 derivation from `rd_org.country_profiles`, plus deterministic planning-schedule dependency
 evaluation.
+
+The shipped v2 output contract is mode-specific:
+
+- `capacity_check` returns shared top-level context plus nested `baseline_plan` and `selected_plan`
+- `planning_schedule` returns the evaluated plan directly, including dependency-rule status and violations
+- business-goal assessment and bounded replanning remain part of shipped `capacity_check` during the v2 transition
 
 ## Shortcuts
 

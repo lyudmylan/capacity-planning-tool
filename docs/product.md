@@ -59,21 +59,25 @@ See [`assumptions.md`](assumptions.md) for behavior and formulas.
 
 ## Output Shape
 
-The planner returns JSON with fields including:
+The planner now ships a transitional mix of legacy and v2 output contracts.
+
+Common response fields still include:
 
 - `capacity_dev_days`
-- `demand_dev_days`
-- `utilization`
-- `feasibility`
-- `buffer_dev_days`
-- `delivered_features`
-- `deferred_features`
-- `dropped_features`
 - `risks`
 - `suggestions`
 - `tradeoff_summary`
 
-The current implementation also returns richer planning fields such as `selected_plan`, `business_goal_assessment`, `evaluated_alternatives`, and `agentic_iterations`.
+Legacy and transitional planning fields still include:
+
+- `business_goal_assessment`
+- `evaluated_alternatives`
+- `agentic_iterations`
+
+The shipped v2 modes now diverge:
+
+- `capacity_check` returns shared top-level context plus nested `baseline_plan` and `selected_plan`
+- `planning_schedule` returns the evaluated plan directly and includes dependency-rule status at the top level
 
 ## UI Direction
 
@@ -353,43 +357,60 @@ The v2 model should validate at least the following:
 
 ### Output Direction
 
-The output model should remain JSON-first and should become function-aware in v2.
+The output model should remain JSON-first and function-aware in v2.
 
-All v2 outputs should include:
+All shipped v2 outputs include:
 
+- `planning_mode`
 - `capacity_by_function`
+
+Each evaluated plan payload includes:
+
 - `demand_by_function`
 - `utilization_by_function`
 - `buffer_by_function`
 - `bottleneck_functions`
-
-`capacity_check` outputs should also include:
-
-- `planning_mode`
 - `function_capacity_fit`
 - `feasibility`
 
-`planning_schedule` outputs should also include:
+The shipped `capacity_check` top-level output includes:
 
-- `planning_mode`
-- `function_capacity_fit`
+- shared planning context such as `planning_mode`, `capacity_dev_days`, and `capacity_by_function`
+- `baseline_plan`
+- `selected_plan`
+- `evaluated_alternatives`
+- `agentic_iterations`
+- `risks`
+- `suggestions`
+- `tradeoff_summary`
+
+The shipped `planning_schedule` top-level output includes:
+
+- the evaluated plan fields directly at the top level
+- `selected_plan` as a duplicate of the evaluated baseline plan for compatibility
 - `dependency_rules_pass`
 - `dependency_violations`
-- `feasibility`
+- `evaluated_alternatives` as an empty list
+- `agentic_iterations` as an empty list
+- `risks`
+- `suggestions`
+- `tradeoff_summary`
 
-The first v2 version does not need to preserve the old aggregate-only output shape.
+The first shipped v2 version therefore keeps some transitional aggregate and compatibility fields while moving the core feasibility contract to function-aware plan payloads.
 
 ### Business Goals and Replanning
 
-The current product includes business-goal support and deterministic replanning.
+The current product includes business-goal support and deterministic replanning, and those capabilities remain present in the first shipped v2 contract.
 
-The first v2 release should focus on the new input model and feasibility engine.
+In the current shipped v2 behavior:
 
-For that reason:
+- `capacity_check` still supports optional business goals
+- `capacity_check` still uses the bounded deterministic replanning loop
+- `planning_schedule` does not run replanning and returns the baseline schedule evaluation directly
 
-- business goals should be out of scope for the first v2 release
-- automated replanning should be out of scope for the first v2 release
-- both may return later once `capacity_check` and `planning_schedule` are stable in v2
+That means the first shipped v2 release focuses on the new input model and feasibility engine while still carrying forward the legacy business-goal and replanning behavior for `capacity_check` during the transition.
+
+Future cleanup can still narrow or redesign these fields, but the published documentation should match the shipped contract until that happens.
 
 ## VNext Epics
 
