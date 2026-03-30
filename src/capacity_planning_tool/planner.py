@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -30,6 +31,9 @@ class EvaluatedPlan:
     demand_dev_days: float
     utilization: float
     buffer_dev_days: float
+    demand_by_function: dict[str, float]
+    utilization_by_function: dict[str, float | None]
+    buffer_by_function: dict[str, float]
     function_capacity_fit: dict[str, bool]
     bottleneck_functions: tuple[str, ...]
     dependency_rules_pass: bool
@@ -225,6 +229,44 @@ def _function_capacity_fit(
         if not capacity_fit[function_name]
     )
     return capacity_fit, bottleneck_functions
+
+
+def _utilization_by_function(
+    demand_by_function: dict[str, float],
+    capacity_by_function: dict[str, float],
+    *,
+    precision: int,
+) -> dict[str, float | None]:
+    return {
+        function_name: (
+            utilization
+            if math.isfinite(
+                utilization := _utilization(
+                    demand_by_function[function_name],
+                    capacity_by_function[function_name],
+                    precision=precision,
+                )
+            )
+            else None
+        )
+        for function_name in SUPPORTED_ESTIMATE_FUNCTIONS
+    }
+
+
+def _buffer_by_function(
+    demand_by_function: dict[str, float],
+    capacity_by_function: dict[str, float],
+    *,
+    precision: int,
+) -> dict[str, float]:
+    return {
+        function_name: _buffer_dev_days(
+            capacity_by_function[function_name],
+            demand_by_function[function_name],
+            precision=precision,
+        )
+        for function_name in SUPPORTED_ESTIMATE_FUNCTIONS
+    }
 
 
 def _dependency_rule_evaluation(
@@ -435,6 +477,16 @@ def _evaluate_plan(
         if feature.original_index not in {item.original_index for item in delivered_features}
     )
     demand_by_function = _demand_by_function(list(delivered_features), precision=precision)
+    utilization_by_function = _utilization_by_function(
+        demand_by_function,
+        capacity_by_function,
+        precision=precision,
+    )
+    buffer_by_function = _buffer_by_function(
+        demand_by_function,
+        capacity_by_function,
+        precision=precision,
+    )
     function_capacity_fit, bottleneck_functions = _function_capacity_fit(
         demand_by_function,
         capacity_by_function,
@@ -467,6 +519,9 @@ def _evaluate_plan(
         demand_dev_days=demand_dev_days,
         utilization=utilization,
         buffer_dev_days=buffer_dev_days,
+        demand_by_function=demand_by_function,
+        utilization_by_function=utilization_by_function,
+        buffer_by_function=buffer_by_function,
         function_capacity_fit=function_capacity_fit,
         bottleneck_functions=bottleneck_functions,
         dependency_rules_pass=dependency_rules_pass,
@@ -525,12 +580,17 @@ def _serialize_evaluated_plan(
     evaluated_plan: EvaluatedPlan,
     *,
     capacity_dev_days: float,
+    capacity_by_function: dict[str, float],
     precision: int,
 ) -> dict[str, Any]:
     return {
         "capacity_dev_days": capacity_dev_days,
         "demand_dev_days": evaluated_plan.demand_dev_days,
         "utilization": evaluated_plan.utilization,
+        "capacity_by_function": capacity_by_function,
+        "demand_by_function": evaluated_plan.demand_by_function,
+        "utilization_by_function": evaluated_plan.utilization_by_function,
+        "buffer_by_function": evaluated_plan.buffer_by_function,
         "function_capacity_fit": evaluated_plan.function_capacity_fit,
         "bottleneck_functions": list(evaluated_plan.bottleneck_functions),
         "dependency_rules_pass": evaluated_plan.dependency_rules_pass,
@@ -632,6 +692,7 @@ def _run_agentic_replanning_loop(
                     "plan": _serialize_evaluated_plan(
                         candidate_plan,
                         capacity_dev_days=capacity_dev_days,
+                        capacity_by_function=capacity_by_function,
                         precision=precision,
                     ),
                 }
@@ -655,6 +716,7 @@ def _run_agentic_replanning_loop(
                 "selected_plan": _serialize_evaluated_plan(
                     selected_plan,
                     capacity_dev_days=capacity_dev_days,
+                    capacity_by_function=capacity_by_function,
                     precision=precision,
                 ),
                 "evaluated_candidates": [
@@ -663,6 +725,7 @@ def _run_agentic_replanning_loop(
                         "plan": _serialize_evaluated_plan(
                             candidate,
                             capacity_dev_days=capacity_dev_days,
+                            capacity_by_function=capacity_by_function,
                             precision=precision,
                         ),
                     }
@@ -860,6 +923,10 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
         "capacity_dev_days": capacity_dev_days,
         "demand_dev_days": demand_dev_days,
         "utilization": utilization,
+        "capacity_by_function": capacity_by_function,
+        "demand_by_function": baseline_plan.demand_by_function,
+        "utilization_by_function": baseline_plan.utilization_by_function,
+        "buffer_by_function": baseline_plan.buffer_by_function,
         "function_capacity_fit": function_capacity_fit,
         "bottleneck_functions": list(bottleneck_functions),
         "dependency_rules_pass": dependency_rules_pass,
@@ -882,6 +949,7 @@ def plan_capacity(planning_input: PlanningInput, defaults: DefaultsConfig) -> di
         "selected_plan": _serialize_evaluated_plan(
             selected_plan,
             capacity_dev_days=capacity_dev_days,
+            capacity_by_function=capacity_by_function,
             precision=precision,
         ),
         "business_goal_assessment": selected_plan.business_goal_assessment,
