@@ -100,6 +100,7 @@ class PlannerTests(unittest.TestCase):
         )
 
         result = plan_capacity(planning_input, load_defaults())
+        self.assertEqual(result["planning_mode"], "capacity_check")
         self.assertEqual(result["capacity_dev_days"], 8.0)
         self.assertEqual(result["demand_dev_days"], 8.0)
         self.assertEqual(
@@ -107,6 +108,8 @@ class PlannerTests(unittest.TestCase):
             {"eng": True, "qa": True, "devops": True},
         )
         self.assertEqual(result["bottleneck_functions"], [])
+        self.assertNotIn("dependency_rules_pass", result)
+        self.assertNotIn("dependency_violations", result)
         self.assertEqual(result["business_goal_assessment"]["must_deliver_feature_ids"], [])
 
     def test_invalid_unavailable_days_raise_validation_error(self) -> None:
@@ -2369,6 +2372,7 @@ class PlannerTests(unittest.TestCase):
             result["demand_by_function"],
             {"eng": 32.0, "qa": 16.0, "devops": 8.0},
         )
+        self.assertEqual(result["planning_mode"], "capacity_check")
         self.assertEqual(
             set(result["capacity_by_function"]),
             {"eng", "qa", "devops"},
@@ -2397,6 +2401,11 @@ class PlannerTests(unittest.TestCase):
             result["selected_plan"]["buffer_by_function"],
             result["buffer_by_function"],
         )
+        self.assertEqual(result["selected_plan"]["planning_mode"], "capacity_check")
+        self.assertNotIn("dependency_rules_pass", result)
+        self.assertNotIn("dependency_violations", result)
+        self.assertNotIn("dependency_rules_pass", result["selected_plan"])
+        self.assertNotIn("dependency_violations", result["selected_plan"])
 
         for function_name in ("eng", "qa", "devops"):
             self.assertEqual(
@@ -2449,6 +2458,8 @@ class PlannerTests(unittest.TestCase):
             result["selected_plan"]["buffer_by_function"],
             result["buffer_by_function"],
         )
+        self.assertEqual(result["planning_mode"], "planning_schedule")
+        self.assertEqual(result["selected_plan"]["planning_mode"], "planning_schedule")
 
     def test_function_output_uses_null_utilization_for_zero_capacity_bottleneck(self) -> None:
         result = plan_capacity(

@@ -97,6 +97,7 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
+        self.assertEqual(result["planning_mode"], "capacity_check")
         self.assertEqual(
             result["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},
@@ -111,6 +112,8 @@ class ServerApiTests(unittest.TestCase):
             {"eng": True, "qa": True, "devops": True},
         )
         self.assertEqual(result["selected_plan"]["bottleneck_functions"], [])
+        self.assertNotIn("dependency_rules_pass", result)
+        self.assertNotIn("dependency_violations", result)
 
     def test_plan_v2_capacity_check_example_with_function_estimates(self) -> None:
         data = self._load_example("v2_function_estimates_capacity_check.json")
@@ -121,6 +124,7 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         result = resp.get_json()
+        self.assertEqual(result["planning_mode"], "capacity_check")
         self.assertIn("function_capacity_fit", result)
         self.assertIn("capacity_by_function", result)
         self.assertIn("demand_by_function", result)
@@ -128,6 +132,8 @@ class ServerApiTests(unittest.TestCase):
         self.assertIn("buffer_by_function", result)
         self.assertIn("bottleneck_functions", result)
         self.assertIn("selected_plan", result)
+        self.assertNotIn("dependency_rules_pass", result)
+        self.assertNotIn("dependency_violations", result)
         self.assertEqual(set(result["function_capacity_fit"]), {"eng", "qa", "devops"})
 
     def test_plan_planning_schedule_returns_schedule_feasibility_payload(self) -> None:
@@ -209,6 +215,7 @@ class ServerApiTests(unittest.TestCase):
             "capacity_dev_days",
             "demand_dev_days",
             "utilization",
+            "planning_mode",
             "capacity_by_function",
             "demand_by_function",
             "utilization_by_function",

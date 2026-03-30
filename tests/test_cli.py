@@ -49,6 +49,7 @@ class CliTests(unittest.TestCase):
 
         result = json.loads(completed.stdout)
         self.assertEqual(completed.stderr, "")
+        self.assertEqual(result["planning_mode"], "capacity_check")
         self.assertIn("capacity_dev_days", result)
         self.assertIn("capacity_by_function", result)
         self.assertIn("demand_by_function", result)
@@ -56,6 +57,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("buffer_by_function", result)
         self.assertIn("function_capacity_fit", result)
         self.assertIn("bottleneck_functions", result)
+        self.assertNotIn("dependency_rules_pass", result)
+        self.assertNotIn("dependency_violations", result)
         self.assertEqual(
             result["function_capacity_fit"],
             {"eng": True, "qa": True, "devops": True},
@@ -77,6 +80,7 @@ class CliTests(unittest.TestCase):
 
         result = json.loads(completed.stdout)
         self.assertEqual(completed.stderr, "")
+        self.assertEqual(result["planning_mode"], "capacity_check")
         self.assertIn("capacity_dev_days", result)
         self.assertIn("capacity_by_function", result)
         self.assertIn("demand_by_function", result)
@@ -84,6 +88,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("buffer_by_function", result)
         self.assertIn("selected_plan", result)
         self.assertIn("function_capacity_fit", result)
+        self.assertNotIn("dependency_rules_pass", result)
+        self.assertNotIn("dependency_violations", result)
         self.assertEqual(set(result["function_capacity_fit"]), {"eng", "qa", "devops"})
 
     def test_cli_accepts_v2_rd_org_month_auto_capacity_check_example(self) -> None:
