@@ -1,16 +1,22 @@
 {
   "spec_id": "capacity-planning-ui-handoff",
-  "spec_version": "2.0",
+  "spec_version": "2.1",
   "status": "active",
-  "purpose": "Machine-readable handoff contract for the shipped v2-aware UI and the next implementation-ready UI spec iteration.",
+  "purpose": "Implementation-ready handoff contract for the next UI iteration built on the shipped v2 planner contract.",
   "source_of_truth": {
     "product_doc": "docs/product.md",
     "ui_explainer_doc": "docs/ui_json_spec.md",
+    "planner_contract_tests": "tests/test_server.py",
+    "shipped_ui": [
+      "ui/index.html",
+      "ui/app.js"
+    ],
     "planner_input_examples": [
       "examples/feasible_plan.json",
       "examples/infeasible_plan.json",
       "examples/goal_driven_plan.json",
       "examples/v2_rd_org_capacity_check.json",
+      "examples/v2_function_estimates_capacity_check.json",
       "examples/v2_rd_org_planning_schedule.json",
       "examples/v2_rd_org_planning_schedule_dependency_only.json"
     ]
@@ -25,7 +31,9 @@
     "supported_planning_modes": [
       "capacity_check",
       "planning_schedule"
-    ]
+    ],
+    "baseline_reference": "shipped_v2_ui_contract",
+    "target_scope": "next_ui_iteration"
   },
   "product_constraints": {
     "machine_readable_io": "json_only",
@@ -36,7 +44,7 @@
   },
   "primary_user_jobs": [
     {
-      "id": "load_plan_input",
+      "id": "compose_valid_plan",
       "description": "Load, paste, upload, or edit planner input JSON without losing machine-readable fidelity."
     },
     {
@@ -49,7 +57,11 @@
     },
     {
       "id": "review_function_bottlenecks",
-      "description": "Inspect capacity, demand, utilization, and bottlenecks by function."
+      "description": "Inspect capacity, demand, utilization, buffer, and bottlenecks by function."
+    },
+    {
+      "id": "review_scope_decisions",
+      "description": "Understand delivered, deferred, and dropped roadmap scope and the tradeoffs behind it."
     },
     {
       "id": "review_goals_and_dependencies",
@@ -58,6 +70,74 @@
     {
       "id": "export_output_json",
       "description": "Copy or download raw output JSON for agent or system use."
+    }
+  ],
+  "information_architecture": {
+    "workspace_model": "single_page_dual_workspace",
+    "regions": [
+      {
+        "id": "input_workspace",
+        "title": "Planning Input",
+        "purpose": "Prepare a valid planner payload through structured editing or raw JSON editing.",
+        "sections": [
+          "example_loader",
+          "mode_and_period",
+          "capacity_controls",
+          "organization",
+          "roadmap",
+          "business_goals",
+          "raw_input_json"
+        ]
+      },
+      {
+        "id": "decision_workspace",
+        "title": "Planning Output",
+        "purpose": "Review feasibility, function bottlenecks, scope changes, and goal or dependency outcomes.",
+        "sections": [
+          "summary",
+          "function_analysis",
+          "scope_decision",
+          "goal_and_dependency_review",
+          "raw_output_json"
+        ]
+      }
+    ]
+  },
+  "mode_flows": [
+    {
+      "mode": "capacity_check",
+      "input_focus": [
+        "mode_and_period",
+        "organization",
+        "roadmap",
+        "business_goals"
+      ],
+      "output_focus": [
+        "summary",
+        "function_analysis",
+        "scope_decision",
+        "goal_and_dependency_review"
+      ],
+      "comparison_model": "baseline_vs_selected",
+      "primary_question": "Can the current organization likely deliver the roadmap within the selected horizon?"
+    },
+    {
+      "mode": "planning_schedule",
+      "input_focus": [
+        "mode_and_period",
+        "organization",
+        "schedule_policies",
+        "roadmap",
+        "business_goals"
+      ],
+      "output_focus": [
+        "summary",
+        "function_analysis",
+        "goal_and_dependency_review",
+        "scope_decision"
+      ],
+      "comparison_model": "selected_plan_primary",
+      "primary_question": "Can the selected scope finish within the horizon once cross-function dependency rules are applied?"
     }
   ],
   "ui_surfaces": [
@@ -72,8 +152,10 @@
           "capabilities": [
             "paste_json",
             "upload_json",
+            "load_examples",
             "structured_edit",
-            "normalize_period_selectors_on_horizon_change"
+            "normalize_period_selectors_on_horizon_change",
+            "keep_raw_and_structured_input_in_sync"
           ]
         },
         {
@@ -88,10 +170,21 @@
           ]
         },
         {
+          "id": "function_panel",
+          "title": "Function Analysis",
+          "capabilities": [
+            "show_demand_by_function",
+            "show_utilization_by_function",
+            "show_buffer_by_function",
+            "highlight_bottleneck_functions"
+          ]
+        },
+        {
           "id": "scope_panel",
           "title": "Scope Decision",
           "capabilities": [
             "show_plan_comparison_for_capacity_check",
+            "show_selected_plan_primary_for_planning_schedule",
             "show_delivered_features",
             "show_deferred_features",
             "show_dropped_features",
@@ -100,11 +193,12 @@
         },
         {
           "id": "goal_panel",
-          "title": "Business Goals",
+          "title": "Goals and Dependencies",
           "capabilities": [
             "show_business_goal_assessment",
             "show_goal_status_from_canonical_plan_flags",
-            "show_dependency_violations_when_present"
+            "show_dependency_violations_when_present",
+            "show_tradeoff_summary"
           ]
         },
         {
@@ -172,15 +266,167 @@
         ]
       }
     },
-    "structured_edit_fields": [
-      "planning_horizon",
-      "working_days",
-      "holidays_days",
-      "vacation_days",
-      "sick_days",
-      "focus_factor",
-      "sprint_days",
-      "overhead_days_per_sprint"
+    "structured_editor_sections": [
+      {
+        "id": "mode_and_period",
+        "primary_fields": [
+          "planning_mode",
+          "planning_horizon",
+          "calendar_year",
+          "half_year_index",
+          "quarter_index",
+          "month_index",
+          "start_date",
+          "end_date"
+        ]
+      },
+      {
+        "id": "capacity_controls",
+        "primary_fields": [
+          "focus_factor",
+          "working_days",
+          "holidays_days",
+          "vacation_days",
+          "sick_days",
+          "sprint_days",
+          "overhead_days_per_sprint"
+        ]
+      },
+      {
+        "id": "organization",
+        "primary_fields": [
+          "rd_org.teams[].name",
+          "rd_org.teams[].members[].id",
+          "rd_org.teams[].members[].function",
+          "rd_org.teams[].members[].seniority",
+          "rd_org.teams[].members[].capacity_percent",
+          "rd_org.teams[].members[].country_profile",
+          "rd_org.country_profiles[].id",
+          "rd_org.country_profiles[].country_code",
+          "rd_org.country_profiles[].working_day_rules",
+          "rd_org.country_profiles[].holiday_calendar_rules",
+          "rd_org.country_profiles[].vacation_days_per_employee",
+          "rd_org.country_profiles[].sick_days_per_employee"
+        ]
+      },
+      {
+        "id": "schedule_policies",
+        "visible_when": {
+          "planning_mode": "planning_schedule"
+        },
+        "primary_fields": [
+          "rd_org.org_schedule_policies.post_dev_min_ratio.qa",
+          "rd_org.org_schedule_policies.post_dev_min_ratio.devops"
+        ]
+      },
+      {
+        "id": "roadmap",
+        "primary_fields": [
+          "roadmap.features[].id",
+          "roadmap.features[].name",
+          "roadmap.features[].priority",
+          "roadmap.features[].size",
+          "roadmap.features[].estimates.eng.size",
+          "roadmap.features[].estimates.qa.size",
+          "roadmap.features[].estimates.devops.size"
+        ]
+      },
+      {
+        "id": "business_goals",
+        "primary_fields": [
+          "business_goals.must_deliver_feature_ids",
+          "business_goals.preserve_priorities",
+          "business_goals.defer_preference",
+          "business_goals.max_utilization",
+          "business_goals.min_buffer_ratio"
+        ]
+      }
+    ]
+  },
+  "validation_behavior": {
+    "blocking_errors": [
+      "invalid_json",
+      "non_object_json",
+      "schema_validation_error"
+    ],
+    "interaction_rules": [
+      "run_disabled_when_input_is_invalid",
+      "structured_edits_must_preserve_unknown_json_fields",
+      "changing_planning_horizon_must_reconcile_period_selectors",
+      "changing_planning_mode_to_capacity_check_hides_schedule_policy_inputs",
+      "manual_capacity_day_fields_must_be_all_or_none",
+      "raw_json_editor_remains_available_as_fidelity_escape_hatch"
+    ],
+    "error_presentation": [
+      {
+        "type": "json_parse_error",
+        "surface": "input_panel",
+        "style": "inline_blocking"
+      },
+      {
+        "type": "schema_validation_error",
+        "surface": "input_panel",
+        "style": "inline_blocking_with_field_path"
+      },
+      {
+        "type": "planner_execution_error",
+        "surface": "summary_panel",
+        "style": "blocking_banner"
+      }
+    ]
+  },
+  "ui_state_model": {
+    "states": [
+      "pristine",
+      "draft_loaded",
+      "draft_dirty",
+      "input_invalid",
+      "ready_to_run",
+      "running",
+      "result_ready",
+      "run_error"
+    ],
+    "transitions": [
+      {
+        "from": "pristine",
+        "event": "load_example_or_json",
+        "to": "draft_loaded"
+      },
+      {
+        "from": "draft_loaded",
+        "event": "edit_input",
+        "to": "draft_dirty"
+      },
+      {
+        "from": "draft_dirty",
+        "event": "validation_passes",
+        "to": "ready_to_run"
+      },
+      {
+        "from": "draft_dirty",
+        "event": "validation_fails",
+        "to": "input_invalid"
+      },
+      {
+        "from": "ready_to_run",
+        "event": "run_planner",
+        "to": "running"
+      },
+      {
+        "from": "running",
+        "event": "run_succeeds",
+        "to": "result_ready"
+      },
+      {
+        "from": "running",
+        "event": "run_fails",
+        "to": "run_error"
+      },
+      {
+        "from": "result_ready",
+        "event": "edit_input",
+        "to": "draft_dirty"
+      }
     ]
   },
   "output_contract": {
@@ -248,6 +494,38 @@
       "dependency_violations"
     ]
   },
+  "field_presentation": {
+    "primary_output_fields": [
+      "planning_mode",
+      "baseline_plan.feasibility",
+      "selected_plan.feasibility",
+      "selected_plan.function_capacity_fit",
+      "selected_plan.bottleneck_functions",
+      "selected_plan.delivered_features",
+      "selected_plan.deferred_features",
+      "selected_plan.dropped_features",
+      "risks",
+      "suggestions",
+      "tradeoff_summary",
+      "dependency_rules_pass",
+      "dependency_violations"
+    ],
+    "secondary_output_fields": [
+      "capacity_dev_days",
+      "selected_plan.capacity_dev_days",
+      "selected_plan.demand_dev_days",
+      "selected_plan.utilization",
+      "selected_plan.buffer_dev_days",
+      "selected_plan.capacity_by_function",
+      "selected_plan.demand_by_function",
+      "selected_plan.utilization_by_function",
+      "selected_plan.buffer_by_function",
+      "business_goal_assessment",
+      "evaluated_alternatives",
+      "agentic_iterations"
+    ],
+    "raw_json_only_policy": "Any planner field not explicitly listed as primary or secondary remains available in the raw JSON panel and does not require a dedicated visual component in the next UI iteration."
+  },
   "interaction_rules": [
     "stdout_json_cleanliness_matters_for_cli_automation",
     "ui_must_display_raw_json_without_loss",
@@ -256,6 +534,24 @@
     "ui_should_make_scope_cuts_and_tradeoffs_easy_to_scan",
     "ui_should_highlight_function_bottlenecks_and_dependency_failures_prominently"
   ],
+  "claude_implementation_guidance": {
+    "implementation_order": [
+      "establish stable input workspace and editor synchronization",
+      "implement mode-aware summary and function analysis panels",
+      "implement mode-specific scope and goals or dependencies panels",
+      "leave raw JSON panels available throughout"
+    ],
+    "non_goals": [
+      "do_not_move_planner_calculations_into_frontend",
+      "do_not_invent_new_backend_fields",
+      "do_not_hide_raw_json_access"
+    ],
+    "review_expectations": [
+      "ui_changes_should_reference_this_spec_and_docs/ui_json_spec.md",
+      "planner_contract_changes_must_update_spec_and_tests/test_ui_spec.py",
+      "ui_logic_tests_should_cover_mode_switching_and_horizon_switching"
+    ]
+  },
   "design_preferences": {
     "quality_bar": "clean_structured_beautiful",
     "avoid": [
