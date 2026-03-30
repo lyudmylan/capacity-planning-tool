@@ -12,10 +12,14 @@ class UiSpecTests(unittest.TestCase):
             spec = json.load(spec_file)
 
         self.assertEqual(spec["spec_id"], "capacity-planning-ui-handoff")
-        self.assertEqual(spec["spec_version"], "1.0")
+        self.assertEqual(spec["spec_version"], "2.0")
         self.assertEqual(spec["delivery_model"]["preferred_ui_builder"], "Claude Code")
         self.assertEqual(spec["source_of_truth"]["product_doc"], "docs/product.md")
         self.assertIn("human_web_interface", spec["delivery_model"]["interaction_modes"])
+        self.assertEqual(
+            spec["delivery_model"]["supported_planning_modes"],
+            ["capacity_check", "planning_schedule"],
+        )
         self.assertEqual(
             spec["product_constraints"]["planner_calculations"],
             "deterministic_backend_only",
@@ -30,26 +34,37 @@ class UiSpecTests(unittest.TestCase):
         self.assertIn("output_contract", spec)
         self.assertIn("design_preferences", spec)
         self.assertIn(
-            "show_plan_comparison",
+            "examples/v2_rd_org_capacity_check.json",
+            spec["source_of_truth"]["planner_input_examples"],
+        )
+        self.assertIn(
+            "normalize_period_selectors_on_horizon_change",
+            spec["ui_surfaces"][0]["panels"][0]["capabilities"],
+        )
+        self.assertIn(
+            "show_plan_comparison_for_capacity_check",
             spec["ui_surfaces"][0]["panels"][2]["capabilities"],
         )
         self.assertEqual(
-            spec["output_contract"]["required_top_level_fields"],
+            spec["input_contract"]["v2_required_top_level_fields"],
+            ["planning_mode", "rd_org", "roadmap"],
+        )
+        self.assertEqual(
+            spec["output_contract"]["capacity_check_top_level_fields"],
             [
+                "planning_mode",
                 "capacity_dev_days",
-                "demand_dev_days",
-                "utilization",
-                "feasibility",
-                "buffer_dev_days",
-                "delivered_features",
-                "deferred_features",
-                "dropped_features",
+                "capacity_by_function",
+                "baseline_plan",
+                "selected_plan",
+                "evaluated_alternatives",
+                "agentic_iterations",
                 "risks",
                 "suggestions",
                 "tradeoff_summary",
-                "selected_plan",
-                "business_goal_assessment",
-                "evaluated_alternatives",
-                "agentic_iterations",
             ],
+        )
+        self.assertEqual(
+            spec["output_contract"]["evaluated_plan_schedule_only_fields"],
+            ["dependency_rules_pass", "dependency_violations"],
         )

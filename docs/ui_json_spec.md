@@ -11,7 +11,7 @@ That JSON spec serves two audiences:
 
 ## Source of Truth
 
-- `specs/ui_handoff_v1.json` is the machine-readable UI contract.
+- `specs/ui_handoff_v1.json` is the current machine-readable UI contract for the shipped v2-aware UI.
 - This Markdown document explains how to interpret and evolve it.
 - `docs/product.md` is the living product and scope reference.
 
@@ -38,32 +38,69 @@ The planner already uses JSON for machine-readable input and output. A JSON-firs
 
 ## Expected Workflow
 
-1. Update `specs/ui_handoff_v1.json` when UI scope or behavior changes.
+1. Update `specs/ui_handoff_v1.json` when shipped UI scope or contract behavior changes.
 2. Update this Markdown doc if the interpretation rules change.
 3. Let the UI implementation follow the JSON contract.
 4. Keep planner calculations and output generation in backend or shared deterministic logic, not duplicated in frontend code.
-5. Review UI changes against both the JSON contract and the living product doc.
+5. Review UI changes against the JSON contract, the living product doc, and the shipped planner output.
 
-## Recommended UI Scope For The First Human Interface
+## Shipped v2 Scope
 
-The first UI should stay narrow and operational:
+The current UI stays narrow and operational, but it now has to reflect two planner modes:
+
+- `capacity_check`
+- `planning_schedule`
+
+The current shipped scope is:
 
 - load or paste planning input JSON
 - edit key planning fields in a structured form
+- keep period selectors schema-valid when `planning_horizon` changes in the structured editor
 - run the planner
-- compare the original roadmap and the selected plan
-- inspect the selected plan, delivered scope, deferred scope, and dropped scope
-- inspect utilization, buffer, and business-goal assessment
+- compare the original roadmap and the selected plan for `capacity_check`
+- inspect delivered scope, deferred scope, dropped scope, and selected-plan details
+- inspect capacity, demand, utilization, and bottlenecks by function
+- inspect business-goal status and dependency-rule outcomes when present
 - view or export raw output JSON
+
+## Shipped Output Contract
+
+The shipped planner output is mode-specific.
+
+For `capacity_check`, the top-level UI contract is:
+
+- shared context such as `planning_mode`, `capacity_dev_days`, and `capacity_by_function`
+- `baseline_plan`
+- `selected_plan`
+- `evaluated_alternatives`
+- `agentic_iterations`
+- `risks`
+- `suggestions`
+- `tradeoff_summary`
+
+For `planning_schedule`, the top-level UI contract is:
+
+- the evaluated plan fields directly at the top level
+- `selected_plan`
+- `dependency_rules_pass`
+- `dependency_violations`
+- `evaluated_alternatives`
+- `agentic_iterations`
+- `risks`
+- `suggestions`
+- `tradeoff_summary`
+
+Both modes expose function-aware plan payloads, and `planning_schedule` adds dependency-rule status.
 
 ## Claude Code Handoff
 
 When UI work is delegated to Claude Code, the handoff should include:
 
 - the current `specs/ui_handoff_v1.json`
-- the planner input and output examples in `examples/`
+- the relevant planner input and output examples in `examples/`
 - the product rules in `AGENTS.md`
 - explicit instruction not to move calculations into the frontend
+- explicit instruction to preserve the mode-specific v2 output contract unless the spec changes first
 
 ## Design Direction
 
