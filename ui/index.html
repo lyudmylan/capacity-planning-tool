@@ -35,31 +35,56 @@ body {
 .app-header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 16px 24px;
+  padding: 14px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 .app-header h1 {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 .app-header .version {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   background: var(--bg);
   padding: 2px 8px;
   border-radius: 4px;
+  font-weight: 500;
 }
+/* Dual workspace layout */
 .workspace {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 24px;
+}
+.dual-workspace {
+  display: grid;
+  grid-template-columns: clamp(340px, 32%, 440px) 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.input-workspace {
+  position: sticky;
+  top: 62px;
+  max-height: calc(100vh - 86px);
+  overflow-y: auto;
+}
+.decision-workspace {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
+@media (max-width: 1000px) {
+  .dual-workspace { grid-template-columns: 1fr; }
+  .input-workspace { position: static; max-height: none; overflow-y: visible; }
+}
+/* Panel */
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -67,38 +92,39 @@ body {
   box-shadow: var(--shadow);
 }
 .panel-header {
-  padding: 14px 20px;
+  padding: 12px 18px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 .panel-header h2 {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--text-secondary);
 }
-.panel-body { padding: 20px; }
-/* Input panel */
+.panel-body { padding: 18px; }
+/* Input controls */
 .input-controls {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  align-items: center;
 }
 .btn {
   font-family: var(--sans);
   font-size: 13px;
   font-weight: 500;
-  padding: 8px 16px;
+  padding: 7px 14px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
   transition: background .15s, border-color .15s;
+  white-space: nowrap;
 }
 .btn:hover { background: var(--bg); border-color: #c8ccd3; }
 .btn-primary {
@@ -112,20 +138,22 @@ body {
 select.example-select {
   font-family: var(--sans);
   font-size: 13px;
-  padding: 8px 12px;
+  padding: 7px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
+  max-width: 160px;
 }
+/* JSON editor */
 .json-editor {
   width: 100%;
-  min-height: 320px;
+  min-height: 380px;
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.6;
-  padding: 16px;
+  padding: 14px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #fafbfc;
@@ -134,23 +162,32 @@ select.example-select {
   tab-size: 2;
 }
 .json-editor:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+/* File drop zone */
 .file-drop-zone {
   border: 2px dashed var(--border);
   border-radius: 6px;
-  padding: 12px;
+  padding: 10px;
   text-align: center;
   color: var(--text-secondary);
-  font-size: 13px;
-  margin-bottom: 12px;
+  font-size: 12px;
+  margin-bottom: 10px;
   transition: border-color .2s, background .2s;
 }
 .file-drop-zone.dragover { border-color: var(--accent); background: var(--accent-light); }
 /* Structured editor */
-.structured-editor { margin-top: 16px; }
+.structured-editor { margin-top: 14px; }
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
 .field-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
 }
 .field-group label {
   display: block;
@@ -159,30 +196,41 @@ select.example-select {
   text-transform: uppercase;
   letter-spacing: .04em;
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 .field-group input, .field-group select {
   width: 100%;
   font-family: var(--sans);
   font-size: 13px;
-  padding: 7px 10px;
+  padding: 6px 9px;
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--surface);
   color: var(--text);
 }
-.field-group input:focus, .field-group select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.field-group input:focus, .field-group select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+.form-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 12px;
+  line-height: 1.5;
+}
+/* Tabs */
 .tab-bar {
   display: flex;
   gap: 0;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 .tab-bar button {
   font-family: var(--sans);
   font-size: 13px;
   font-weight: 500;
-  padding: 8px 16px;
+  padding: 7px 14px;
   border: none;
   background: none;
   color: var(--text-secondary);
@@ -201,20 +249,94 @@ select.example-select {
   background: var(--red-bg);
   border: 1px solid #fecaca;
   color: var(--red);
-  padding: 10px 16px;
+  padding: 9px 14px;
   border-radius: 6px;
   font-size: 13px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 .error-bar.visible { display: block; }
-/* Summary panel */
+/* No-results placeholder */
+.no-results-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+  color: var(--text-secondary);
+}
+.placeholder-icon {
+  font-size: 36px;
+  margin-bottom: 14px;
+  opacity: 0.3;
+  line-height: 1;
+}
+.placeholder-content h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.placeholder-content p {
+  font-size: 13px;
+  max-width: 300px;
+  line-height: 1.6;
+  margin: 0 auto;
+}
+/* Run error banner */
+.run-error-banner {
+  display: none;
+  background: var(--red-bg);
+  border: 1px solid #fecaca;
+  color: var(--red);
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+}
+.run-error-banner.visible { display: block; }
+/* Results */
+.results-area { display: none; flex-direction: column; gap: 20px; }
+.results-area.visible { display: flex; }
+/* Mode badge */
+.mode-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.mode-badge.capacity-check {
+  background: var(--accent-light);
+  color: var(--accent);
+  border: 1px solid #c7d7fd;
+}
+.mode-badge.planning-schedule {
+  background: var(--green-bg);
+  color: var(--green);
+  border: 1px solid #bbf7d0;
+}
+/* Feasibility banner */
+.feasibility-banner {
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.feasibility-banner.feasible { background: var(--green-bg); color: var(--green); border: 1px solid #bbf7d0; }
+.feasibility-banner.infeasible { background: var(--red-bg); color: var(--red); border: 1px solid #fecaca; }
+/* Summary metrics */
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
 }
 .metric-card {
-  padding: 14px 16px;
+  padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg);
@@ -228,48 +350,149 @@ select.example-select {
   margin-bottom: 4px;
 }
 .metric-value {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 .metric-value.feasible { color: var(--green); }
 .metric-value.infeasible { color: var(--red); }
 .metric-value.warning { color: var(--amber); }
-/* Feasibility banner */
-.feasibility-banner {
-  padding: 12px 16px;
+/* Dependency status */
+.dep-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
   border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
 }
-.feasibility-banner.feasible { background: var(--green-bg); color: var(--green); border: 1px solid #bbf7d0; }
-.feasibility-banner.infeasible { background: var(--red-bg); color: var(--red); border: 1px solid #fecaca; }
+.dep-status.pass { background: var(--green-bg); border: 1px solid #bbf7d0; color: var(--green); }
+.dep-status.fail { background: var(--red-bg); border: 1px solid #fecaca; color: var(--red); }
+/* Function capacity fit chips */
+.fn-fit-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.fn-fit-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.fn-fit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+.fn-fit-chip.pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.fn-fit-chip.fail { background: #fecaca; color: #991b1b; border: 1px solid #fca5a5; }
+/* Function analysis table */
+.fn-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.fn-table th {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+.fn-table td {
+  padding: 11px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.fn-table tr:last-child td { border-bottom: none; }
+.fn-name {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+}
+.fn-bottleneck-row { background: #fff5f5; }
+.fn-bottleneck-row td:first-child { border-left: 3px solid var(--red); padding-left: 9px; }
+/* Utilization bar */
+.util-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+.util-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.util-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.util-bar.feasible { background: var(--green); }
+.util-bar.warning { background: var(--amber); }
+.util-bar.infeasible { background: var(--red); }
+.util-pct {
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 38px;
+  text-align: right;
+}
+.util-pct.feasible { color: var(--green); }
+.util-pct.warning { color: var(--amber); }
+.util-pct.infeasible { color: var(--red); }
+/* Function status chips */
+.status-chip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.status-chip.bottleneck { background: #fecaca; color: #991b1b; }
+.status-chip.ok { background: #dcfce7; color: #166534; }
+.status-chip.over-capacity { background: #fecaca; color: #991b1b; }
 /* Scope panel */
 .feature-list { list-style: none; }
 .feature-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 9px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   background: var(--bg);
   font-size: 13px;
 }
 .feature-item:last-child { margin-bottom: 0; }
-.feature-name { font-weight: 500; flex: 1; }
-.feature-meta {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
+.feature-name { font-weight: 500; flex: 1; min-width: 0; padding-right: 8px; }
+.feature-meta { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
 .badge {
   display: inline-block;
   font-size: 11px;
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: .03em;
@@ -279,11 +502,11 @@ select.example-select {
 .badge-high { background: #fed7aa; color: #9a3412; }
 .badge-medium { background: #fef08a; color: #854d0e; }
 .badge-low { background: #e2e5e9; color: #5e6370; }
-.scope-section { margin-bottom: 20px; }
+.scope-section { margin-bottom: 18px; }
 .scope-section:last-child { margin-bottom: 0; }
 .scope-section-title {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .04em;
   color: var(--text-secondary);
@@ -293,8 +516,9 @@ select.example-select {
   font-size: 13px;
   color: var(--text-secondary);
   font-style: italic;
-  padding: 8px 0;
+  padding: 6px 0;
 }
+/* Comparison callout */
 .comparison-callout {
   margin-bottom: 18px;
   padding: 14px 16px;
@@ -303,26 +527,22 @@ select.example-select {
   background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%);
 }
 .comparison-title {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .04em;
   color: var(--text-secondary);
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
-.comparison-summary {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-}
+.comparison-summary { font-size: 14px; font-weight: 600; color: var(--text); }
 .comparison-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
-  margin-top: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
 }
 .comparison-card {
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
@@ -334,38 +554,41 @@ select.example-select {
   text-transform: uppercase;
   letter-spacing: .04em;
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 .comparison-card strong {
   display: block;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-.comparison-delta {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
+.comparison-delta { margin-top: 3px; font-size: 12px; color: var(--text-secondary); }
 .comparison-delta.better { color: var(--green); }
 .comparison-delta.worse { color: var(--red); }
 .comparison-list {
   list-style: none;
-  margin-top: 12px;
+  margin-top: 10px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 .comparison-list li {
   font-size: 12px;
-  padding: 6px 10px;
+  padding: 5px 10px;
   border-radius: 999px;
   background: var(--surface);
   border: 1px solid var(--border);
 }
+/* Two-column output layout */
+.output-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 700px) { .output-columns { grid-template-columns: 1fr; } }
 /* Goal panel */
 .goal-status {
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-radius: 6px;
   font-size: 13px;
   margin-bottom: 12px;
@@ -373,25 +596,17 @@ select.example-select {
 .goal-status.compliant { background: var(--green-bg); border: 1px solid #bbf7d0; color: var(--green); }
 .goal-status.acceptable { background: var(--amber-bg); border: 1px solid #fde68a; color: var(--amber); }
 .goal-status.violated { background: var(--red-bg); border: 1px solid #fecaca; color: var(--red); }
-.violation-list {
-  list-style: none;
-  margin-top: 8px;
-}
+.violation-list { list-style: none; margin-top: 8px; }
 .violation-list li {
   font-size: 13px;
-  padding: 4px 0;
-  padding-left: 16px;
+  padding: 4px 0 4px 16px;
   position: relative;
 }
-.violation-list li::before {
-  content: "\2022";
-  position: absolute;
-  left: 0;
-}
+.violation-list li::before { content: "\2022"; position: absolute; left: 0; }
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
   margin-top: 12px;
 }
 .info-item label {
@@ -421,23 +636,20 @@ select.example-select {
 .iteration-item {
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 12px 16px;
+  padding: 10px 14px;
   margin-bottom: 8px;
   background: var(--bg);
   font-size: 13px;
 }
-.iteration-header {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-/* JSON panel */
+.iteration-header { font-weight: 600; margin-bottom: 4px; }
+/* JSON output */
 .json-output {
   width: 100%;
-  min-height: 300px;
+  min-height: 280px;
   font-family: var(--mono);
   font-size: 12px;
   line-height: 1.6;
-  padding: 16px;
+  padding: 14px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #fafbfc;
@@ -446,37 +658,7 @@ select.example-select {
   white-space: pre;
   overflow: auto;
 }
-.json-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-/* Hidden results */
-.results-area { display: none; }
-.results-area.visible { display: flex; flex-direction: column; gap: 20px; }
-/* Two-column layout for output panels */
-.output-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-@media (max-width: 800px) {
-  .output-columns { grid-template-columns: 1fr; }
-  .summary-grid { grid-template-columns: repeat(2, 1fr); }
-}
-/* Loading spinner */
-.spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255,255,255,.3);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin .6s linear infinite;
-  margin-right: 6px;
-  vertical-align: middle;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+.json-actions { display: flex; gap: 6px; }
 /* Collapsible sections */
 details summary {
   cursor: pointer;
@@ -490,163 +672,269 @@ details summary {
 }
 details summary::before { content: "\25B6\00a0"; font-size: 10px; }
 details[open] summary::before { content: "\25BC\00a0"; }
+/* Loading spinner */
+.spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Dependency violation section in goal panel */
+.dep-violation-section { margin-bottom: 16px; }
+.dep-violation-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 8px;
+}
+/* Schedule-primary callout (planning_schedule scope) */
+.schedule-primary-callout {
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  border: 1px solid #c7d7fd;
+  border-radius: 8px;
+  background: var(--accent-light);
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 500;
+}
+/* Function analysis panel */
+.function-table {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.function-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.function-row:last-child { border-bottom: none; }
+.function-row-header {
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+}
+.function-row:not(.function-row-header) { background: var(--bg); }
+.function-row.is-bottleneck { background: var(--red-bg); border-left: 3px solid var(--red); }
+.function-cell-name { font-weight: 600; text-transform: capitalize; display: flex; align-items: center; gap: 6px; }
+.badge-bottleneck { background: var(--red-bg); color: var(--red); border: 1px solid #fecaca; font-size: 10px; padding: 1px 6px; }
+@media (max-width: 600px) {
+  .function-row { grid-template-columns: 1fr 1fr; }
+}
 </style>
 </head>
 <body>
 
 <header class="app-header">
   <h1>Capacity Planner</h1>
-  <span class="version">v1</span>
+  <span class="version">v2</span>
 </header>
 
 <main class="workspace">
-  <!-- Input Panel -->
-  <section class="panel" id="input-panel">
-    <div class="panel-header">
-      <h2>Planning Input</h2>
-      <div class="input-controls">
-        <select class="example-select" id="example-select">
-          <option value="">Load example...</option>
-        </select>
-        <label class="btn btn-sm" style="margin:0">
-          Upload JSON
-          <input type="file" accept=".json" id="file-upload" style="display:none">
-        </label>
-        <button class="btn btn-primary" id="run-btn">Run Planner</button>
-      </div>
-    </div>
-    <div class="panel-body">
-      <div class="file-drop-zone" id="drop-zone">Drop a JSON file here</div>
-      <div class="error-bar" id="input-error"></div>
+  <div class="dual-workspace">
 
-      <div class="tab-bar">
-        <button class="active" data-tab="json-tab">JSON</button>
-        <button data-tab="form-tab">Structured Edit</button>
-      </div>
+    <!-- Planning Input workspace -->
+    <aside class="input-workspace">
+      <section class="panel" id="input-panel">
+        <div class="panel-header">
+          <h2>Planning Input</h2>
+          <div class="input-controls">
+            <select class="example-select" id="example-select">
+              <option value="">Load example...</option>
+            </select>
+            <label class="btn btn-sm" style="margin:0">
+              Upload
+              <input type="file" accept=".json" id="file-upload" style="display:none">
+            </label>
+            <button class="btn btn-primary btn-sm" id="run-btn">Run Planner</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="file-drop-zone" id="drop-zone">Drop a JSON file here</div>
+          <div class="error-bar" id="input-error"></div>
 
-      <div id="json-tab" class="tab-content active">
-        <textarea class="json-editor" id="json-input" spellcheck="false" placeholder='Paste planning JSON here...'></textarea>
-      </div>
+          <div class="tab-bar">
+            <button class="active" data-tab="json-tab">JSON</button>
+            <button data-tab="form-tab">Structured Edit</button>
+          </div>
 
-      <div id="form-tab" class="tab-content">
-        <div class="structured-editor">
-          <div class="field-grid">
-            <div class="field-group">
-              <label>Planning Horizon</label>
-              <select id="f-horizon">
-                <option value="sprint">Sprint</option>
-                <option value="month">Month</option>
-                <option value="quarter" selected>Quarter</option>
-                <option value="half_year">Half Year</option>
-                <option value="year">Year</option>
-              </select>
-            </div>
-            <div class="field-group">
-              <label>Working Days</label>
-              <input type="number" id="f-working-days" min="0" value="60">
-            </div>
-            <div class="field-group">
-              <label>Holidays</label>
-              <input type="number" id="f-holidays" min="0" value="2">
-            </div>
-            <div class="field-group">
-              <label>Vacation Days</label>
-              <input type="number" id="f-vacation" min="0" value="5">
-            </div>
-            <div class="field-group">
-              <label>Sick Days</label>
-              <input type="number" id="f-sick" min="0" value="1">
-            </div>
-            <div class="field-group">
-              <label>Focus Factor</label>
-              <input type="number" id="f-focus" min="0" max="1" step="0.05" value="0.8">
-            </div>
-            <div class="field-group">
-              <label>Sprint Days</label>
-              <input type="number" id="f-sprint-days" min="1" value="10">
-            </div>
-            <div class="field-group">
-              <label>Overhead / Sprint</label>
-              <input type="number" id="f-overhead" min="0" value="2">
+          <div id="json-tab" class="tab-content active">
+            <textarea class="json-editor" id="json-input" spellcheck="false"
+              placeholder='Paste planning JSON here...'></textarea>
+          </div>
+
+          <div id="form-tab" class="tab-content">
+            <div class="structured-editor">
+              <div class="section-label">Planning Period</div>
+              <div class="field-grid">
+                <div class="field-group">
+                  <label>Planning Horizon</label>
+                  <select id="f-horizon">
+                    <option value="sprint">Sprint</option>
+                    <option value="month">Month</option>
+                    <option value="quarter" selected>Quarter</option>
+                    <option value="half_year">Half Year</option>
+                    <option value="year">Year</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="section-label" style="margin-top:14px">Capacity Controls</div>
+              <div class="field-grid">
+                <div class="field-group">
+                  <label>Working Days</label>
+                  <input type="number" id="f-working-days" min="0">
+                </div>
+                <div class="field-group">
+                  <label>Holidays</label>
+                  <input type="number" id="f-holidays" min="0">
+                </div>
+                <div class="field-group">
+                  <label>Vacation Days</label>
+                  <input type="number" id="f-vacation" min="0">
+                </div>
+                <div class="field-group">
+                  <label>Sick Days</label>
+                  <input type="number" id="f-sick" min="0">
+                </div>
+                <div class="field-group">
+                  <label>Focus Factor</label>
+                  <input type="number" id="f-focus" min="0" max="1" step="0.05">
+                </div>
+                <div class="field-group">
+                  <label>Sprint Days</label>
+                  <input type="number" id="f-sprint-days" min="1">
+                </div>
+                <div class="field-group">
+                  <label>Overhead / Sprint</label>
+                  <input type="number" id="f-overhead" min="0">
+                </div>
+              </div>
+
+              <p class="form-hint">
+                Team structure, roadmap features, and business goals are edited in the JSON tab.
+                Changes here sync to JSON automatically.
+              </p>
             </div>
           </div>
-          <p style="font-size:12px;color:var(--text-secondary);margin-top:12px;">
-            Team structure, roadmap features, and business goals are edited in the JSON tab.
-            Changes here sync to JSON automatically.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Results -->
-  <div class="results-area" id="results">
-    <!-- Summary Panel -->
-    <section class="panel" id="summary-panel">
-      <div class="panel-header"><h2>Plan Summary</h2></div>
-      <div class="panel-body">
-        <div id="feasibility-banner" class="feasibility-banner"></div>
-        <div class="summary-grid" id="summary-grid"></div>
-      </div>
-    </section>
-
-    <!-- Risks / Suggestions / Tradeoffs -->
-    <div class="output-columns">
-      <section class="panel">
-        <div class="panel-header"><h2>Risks &amp; Tradeoffs</h2></div>
-        <div class="panel-body">
-          <div id="risks-container"></div>
-          <div id="tradeoff-container" style="margin-top:14px"></div>
         </div>
       </section>
-      <section class="panel">
-        <div class="panel-header"><h2>Suggestions</h2></div>
-        <div class="panel-body">
-          <div id="suggestions-container"></div>
-        </div>
-      </section>
-    </div>
+    </aside>
 
-    <!-- Scope Panel -->
-    <section class="panel" id="scope-panel">
-      <div class="panel-header"><h2>Scope Decision</h2></div>
-      <div class="panel-body" id="scope-body"></div>
-    </section>
+    <!-- Decision workspace -->
+    <div class="decision-workspace" id="decision-workspace">
 
-    <!-- Goal Panel -->
-    <section class="panel" id="goal-panel">
-      <div class="panel-header"><h2>Business Goals</h2></div>
-      <div class="panel-body" id="goal-body"></div>
-    </section>
-
-    <!-- JSON Panel -->
-    <section class="panel" id="json-panel">
-      <div class="panel-header">
-        <h2>Raw JSON</h2>
-        <div class="json-actions">
-          <button class="btn btn-sm" id="copy-output-btn">Copy</button>
-          <button class="btn btn-sm" id="download-output-btn">Download</button>
+      <!-- Placeholder before first run -->
+      <div class="no-results-placeholder" id="no-results-placeholder">
+        <div class="placeholder-content">
+          <div class="placeholder-icon">&#9680;</div>
+          <h3>Decision workspace</h3>
+          <p>Load an example or paste your planning JSON, then run the planner to review results here.</p>
         </div>
       </div>
-      <div class="panel-body">
-        <div class="tab-bar">
-          <button class="active" data-tab="output-json-tab">Output</button>
-          <button data-tab="input-json-tab">Input</button>
+
+      <!-- Blocking run-error banner -->
+      <div class="run-error-banner" id="run-error-banner"></div>
+
+      <!-- Results panels -->
+      <div class="results-area" id="results">
+
+        <!-- Plan Summary -->
+        <section class="panel" id="summary-panel">
+          <div class="panel-header">
+            <h2>Plan Summary</h2>
+            <span class="mode-badge" id="mode-badge"></span>
+          </div>
+          <div class="panel-body">
+            <div id="feasibility-banner" class="feasibility-banner"></div>
+            <div class="summary-grid" id="summary-grid"></div>
+            <div id="dep-status-section" style="margin-top:14px;display:none"></div>
+            <div id="fn-fit-section" style="margin-top:14px;display:none"></div>
+          </div>
+        </section>
+
+        <!-- Function Analysis -->
+        <section class="panel" id="function-panel">
+          <div class="panel-header"><h2>Function Analysis</h2></div>
+          <div class="panel-body" id="function-body"></div>
+        </section>
+
+        <!-- Scope Decision -->
+        <section class="panel" id="scope-panel">
+          <div class="panel-header"><h2>Scope Decision</h2></div>
+          <div class="panel-body" id="scope-body"></div>
+        </section>
+
+        <!-- Risks & Suggestions -->
+        <div class="output-columns">
+          <section class="panel">
+            <div class="panel-header"><h2>Risks &amp; Tradeoffs</h2></div>
+            <div class="panel-body">
+              <div id="risks-container"></div>
+              <div id="tradeoff-container" style="margin-top:14px"></div>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h2>Suggestions</h2></div>
+            <div class="panel-body">
+              <div id="suggestions-container"></div>
+            </div>
+          </section>
         </div>
-        <div id="output-json-tab" class="tab-content active">
-          <pre class="json-output" id="output-json"></pre>
-        </div>
-        <div id="input-json-tab" class="tab-content">
-          <pre class="json-output" id="input-json-snapshot"></pre>
-        </div>
-      </div>
-    </section>
-  </div>
+
+        <!-- Goals & Dependencies -->
+        <section class="panel" id="goal-panel">
+          <div class="panel-header"><h2>Goals &amp; Dependencies</h2></div>
+          <div class="panel-body" id="goal-body"></div>
+        </section>
+
+        <!-- Raw JSON -->
+        <section class="panel" id="json-panel">
+          <div class="panel-header">
+            <h2>Raw JSON</h2>
+            <div class="json-actions">
+              <button class="btn btn-sm" id="copy-output-btn">Copy</button>
+              <button class="btn btn-sm" id="download-output-btn">Download</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="tab-bar">
+              <button class="active" data-tab="output-json-tab">Output</button>
+              <button data-tab="input-json-tab">Input</button>
+            </div>
+            <div id="output-json-tab" class="tab-content active">
+              <pre class="json-output" id="output-json"></pre>
+            </div>
+            <div id="input-json-tab" class="tab-content">
+              <pre class="json-output" id="input-json-snapshot"></pre>
+            </div>
+          </div>
+        </section>
+
+      </div><!-- /.results-area -->
+    </div><!-- /.decision-workspace -->
+  </div><!-- /.dual-workspace -->
 </main>
 
 <script type="module">
 import {
   applyEditableFieldsToPayload,
+  buildFunctionAnalysisModel,
   buildPlanComparison,
   buildSummaryModel,
   getUtilizationStatus,
@@ -663,6 +951,8 @@ import {
   const fileUpload = document.getElementById("file-upload");
   const dropZone = document.getElementById("drop-zone");
   const inputError = document.getElementById("input-error");
+  const noResultsPlaceholder = document.getElementById("no-results-placeholder");
+  const runErrorBanner = document.getElementById("run-error-banner");
   const resultsArea = document.getElementById("results");
   const outputJson = document.getElementById("output-json");
   const inputJsonSnapshot = document.getElementById("input-json-snapshot");
@@ -785,12 +1075,13 @@ import {
   runBtn.addEventListener("click", runPlanner);
 
   async function runPlanner() {
-    hideError();
+    hideInputError();
+    hideRunError();
     let inputData;
     try {
       inputData = JSON.parse(jsonInput.value);
     } catch(e) {
-      showError("Invalid JSON: " + e.message);
+      showInputError("Invalid JSON: " + e.message);
       return;
     }
 
@@ -805,7 +1096,8 @@ import {
       });
       const data = await resp.json();
       if (!resp.ok) {
-        showError(data.error || "Server error");
+        showRunError(data.error || "Planner error: server returned " + resp.status);
+        showDecisionWorkspace(false);
         return;
       }
       lastResult = data;
@@ -813,27 +1105,42 @@ import {
       inputJsonSnapshot.textContent = JSON.stringify(inputData, null, 2);
       outputJson.textContent = JSON.stringify(data, null, 2);
       renderResults(data);
-      resultsArea.classList.add("visible");
+      showDecisionWorkspace(true);
       document.getElementById("summary-panel").scrollIntoView({behavior: "smooth", block: "start"});
     } catch(e) {
-      showError("Network error: " + e.message);
+      showRunError("Network error: " + e.message);
+      showDecisionWorkspace(false);
     } finally {
       runBtn.disabled = false;
       runBtn.textContent = "Run Planner";
     }
   }
 
-  function showError(msg) {
+  function showDecisionWorkspace(hasResults) {
+    noResultsPlaceholder.style.display = hasResults ? "none" : "";
+    resultsArea.classList.toggle("visible", hasResults);
+  }
+
+  function showInputError(msg) {
     inputError.textContent = msg;
     inputError.classList.add("visible");
   }
-  function hideError() {
+  function hideInputError() {
     inputError.classList.remove("visible");
+  }
+  function showRunError(msg) {
+    runErrorBanner.textContent = msg;
+    runErrorBanner.classList.add("visible");
+    runErrorBanner.style.display = "";
+  }
+  function hideRunError() {
+    runErrorBanner.classList.remove("visible");
   }
 
   // --- Render results ---
   function renderResults(data) {
     renderSummary(data);
+    renderFunctionAnalysis(data);
     renderScope(data);
     renderGoals(data);
     renderRisks(data);
@@ -841,12 +1148,29 @@ import {
     renderTradeoffs(data);
   }
 
+  // --- Summary panel ---
   function renderSummary(data) {
     const summary = buildSummaryModel(data);
+
+    // Mode badge
+    const modeBadge = document.getElementById("mode-badge");
+    if (summary.planningMode === "capacity_check") {
+      modeBadge.className = "mode-badge capacity-check";
+      modeBadge.textContent = "Capacity Check";
+    } else if (summary.planningMode === "planning_schedule") {
+      modeBadge.className = "mode-badge planning-schedule";
+      modeBadge.textContent = "Planning Schedule";
+    } else {
+      modeBadge.className = "mode-badge";
+      modeBadge.textContent = summary.planningMode ?? "";
+    }
+
+    // Feasibility banner
     const banner = document.getElementById("feasibility-banner");
     banner.className = summary.bannerClass;
     banner.textContent = summary.bannerText;
 
+    // Metrics grid
     const utilClass = getUtilizationStatus(summary.utilization);
     const grid = document.getElementById("summary-grid");
     grid.innerHTML = "";
@@ -867,17 +1191,133 @@ import {
         '<div class="metric-value ' + m.cls + '">' + esc(String(m.value)) + '</div>';
       grid.appendChild(card);
     });
+
+    // Dependency rule status (planning_schedule)
+    const depSection = document.getElementById("dep-status-section");
+    if (summary.dependencyRulesPass !== null) {
+      depSection.style.display = "";
+      depSection.innerHTML = "";
+      const depDiv = document.createElement("div");
+      depDiv.className = "dep-status " + (summary.dependencyRulesPass ? "pass" : "fail");
+      depDiv.textContent = summary.dependencyRulesPass
+        ? "Dependency rules pass — all cross-function sequencing constraints satisfied"
+        : "Dependency rules fail — cross-function sequencing constraints violated";
+      depSection.appendChild(depDiv);
+    } else {
+      depSection.style.display = "none";
+    }
+
+    // Function capacity fit chips
+    const fnFitSection = document.getElementById("fn-fit-section");
+    const fitKeys = Object.keys(summary.functionCapacityFit);
+    if (fitKeys.length > 0) {
+      fnFitSection.style.display = "";
+      fnFitSection.innerHTML = '<div class="fn-fit-label">Function Capacity Fit</div>';
+      const row = document.createElement("div");
+      row.className = "fn-fit-row";
+      fitKeys.forEach(fn => {
+        const fits = summary.functionCapacityFit[fn];
+        const chip = document.createElement("span");
+        chip.className = "fn-fit-chip " + (fits ? "pass" : "fail");
+        chip.textContent = (fits ? "✓ " : "✗ ") + fn.toUpperCase();
+        row.appendChild(chip);
+      });
+      fnFitSection.appendChild(row);
+    } else {
+      fnFitSection.style.display = "none";
+    }
   }
 
+  // --- Function Analysis panel ---
+  function renderFunctionAnalysis(data) {
+    const body = document.getElementById("function-body");
+    body.innerHTML = "";
+    const model = buildFunctionAnalysisModel(data);
+
+    if (!model || model.length === 0) {
+      body.innerHTML = '<div class="scope-empty">No per-function metrics available — use v2 rd_org input format for function-level analysis.</div>';
+      return;
+    }
+
+    const table = document.createElement("table");
+    table.className = "fn-table";
+
+    const thead = document.createElement("thead");
+    thead.innerHTML =
+      '<tr>' +
+        '<th>Function</th>' +
+        '<th>Capacity</th>' +
+        '<th>Demand</th>' +
+        '<th>Utilization</th>' +
+        '<th>Buffer</th>' +
+        '<th>Status</th>' +
+      '</tr>';
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    model.forEach(fn => {
+      const tr = document.createElement("tr");
+      if (fn.isBottleneck) tr.className = "fn-bottleneck-row";
+
+      const utilStatus = fn.utilization !== null ? getUtilizationStatus(fn.utilization) : "";
+      const utilPct = fn.utilization !== null ? Math.round(fn.utilization * 100) : null;
+      const barWidth = fn.utilization !== null ? Math.min(fn.utilization * 100, 100) : 0;
+
+      // Status chip
+      let statusHtml;
+      if (fn.isBottleneck) {
+        statusHtml = '<span class="status-chip bottleneck">Bottleneck</span>';
+      } else if (fn.fits === false) {
+        statusHtml = '<span class="status-chip over-capacity">Over capacity</span>';
+      } else if (fn.fits === true) {
+        statusHtml = '<span class="status-chip ok">OK</span>';
+      } else {
+        statusHtml = '<span style="color:var(--text-secondary);font-size:12px">—</span>';
+      }
+
+      tr.innerHTML =
+        '<td><span class="fn-name">' + esc(fn.name) + '</span></td>' +
+        '<td>' + (fn.capacity !== null ? esc(String(fn.capacity)) + ' d' : '<span style="color:var(--text-secondary)">—</span>') + '</td>' +
+        '<td>' + (fn.demand !== null ? esc(String(fn.demand)) + ' d' : '<span style="color:var(--text-secondary)">—</span>') + '</td>' +
+        '<td>' +
+          (fn.utilization !== null
+            ? '<div class="util-cell">' +
+                '<div class="util-bar-wrap"><div class="util-bar ' + utilStatus + '" style="width:' + barWidth + '%"></div></div>' +
+                '<span class="util-pct ' + utilStatus + '">' + utilPct + '%</span>' +
+              '</div>'
+            : '<span style="color:var(--text-secondary)">—</span>'
+          ) +
+        '</td>' +
+        '<td>' + (fn.buffer !== null ? esc(String(fn.buffer)) + ' d' : '<span style="color:var(--text-secondary)">—</span>') + '</td>' +
+        '<td>' + statusHtml + '</td>';
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    body.appendChild(table);
+  }
+
+  // --- Scope Decision panel ---
   function renderScope(data) {
     const body = document.getElementById("scope-body");
     body.innerHTML = "";
+
+    const planningMode = data.planning_mode
+      ?? data.selected_plan?.planning_mode
+      ?? "capacity_check";
+    const isSchedule = planningMode === "planning_schedule";
     const selectedPlan = data.selected_plan ?? data;
     const deliveredFeatures = selectedPlan.delivered_features ?? data.delivered_features ?? [];
     const deferredFeatures = selectedPlan.deferred_features ?? data.deferred_features ?? [];
     const droppedFeatures = selectedPlan.dropped_features ?? data.dropped_features ?? [];
 
-    if (lastInputData) {
+    if (isSchedule) {
+      // Planning schedule: selected plan is primary — no baseline comparison
+      const callout = document.createElement("div");
+      callout.className = "schedule-primary-callout";
+      callout.textContent = "Showing selected plan scope — no baseline comparison in planning schedule mode.";
+      body.appendChild(callout);
+    } else if (lastInputData) {
+      // Capacity check: show original vs selected comparison
       const comparison = buildPlanComparison(lastInputData, data);
       const comparisonBlock = document.createElement("div");
       comparisonBlock.className = "comparison-callout";
@@ -950,7 +1390,6 @@ import {
         });
         comparisonBlock.appendChild(removedList);
       }
-
       body.appendChild(comparisonBlock);
     }
 
@@ -987,9 +1426,10 @@ import {
       body.appendChild(div);
     });
 
-    // Selected plan details
+    // Selected plan details (expandable)
     if (data.selected_plan) {
       const details = document.createElement("details");
+      details.style.marginTop = "12px";
       details.innerHTML = '<summary>Selected Plan Details</summary>';
       const pre = document.createElement("pre");
       pre.className = "json-output";
@@ -1017,14 +1457,8 @@ import {
     return card;
   }
 
-  function formatDays(value) {
-    return value + " days";
-  }
-
-  function formatPercent(value) {
-    return Math.round(value * 100) + "%";
-  }
-
+  function formatDays(value) { return value + " days"; }
+  function formatPercent(value) { return Math.round(value * 100) + "%"; }
   function formatSignedDelta(value, suffix) {
     if (value === 0) return "No change";
     const rounded = Math.round(value * 100) / 100;
@@ -1032,21 +1466,48 @@ import {
     return sign + rounded + " " + suffix;
   }
 
+  // --- Goals & Dependencies panel ---
   function renderGoals(data) {
     const body = document.getElementById("goal-body");
     body.innerHTML = "";
 
+    const planningMode = data.planning_mode ?? "capacity_check";
     const selectedPlan = data.selected_plan ?? data;
+
+    // 1. Dependency violations (planning_schedule)
+    const depViolations = data.dependency_violations
+      ?? selectedPlan.dependency_violations
+      ?? [];
+    if (depViolations.length > 0) {
+      const section = document.createElement("div");
+      section.className = "dep-violation-section";
+      section.innerHTML =
+        '<div class="dep-violation-section-title" style="color:var(--red)">Dependency Violations</div>';
+      const ul = document.createElement("ul");
+      ul.className = "violation-list";
+      depViolations.forEach(v => {
+        const li = document.createElement("li");
+        li.textContent = v;
+        ul.appendChild(li);
+      });
+      section.appendChild(ul);
+      body.appendChild(section);
+    }
+
+    // 2. Business goal assessment
     const bga = data.selected_plan?.business_goal_assessment ?? data.business_goal_assessment;
     if (!bga) {
-      body.innerHTML = '<div class="scope-empty">No business goals defined</div>';
+      if (depViolations.length === 0) {
+        body.innerHTML = '<div class="scope-empty">No business goals defined</div>';
+      }
+      // Tradeoff summary still possible below even without bga
+      renderTradeoffsInGoalPanel(data, body);
       return;
     }
 
     const goalCompliant = selectedPlan?.goal_compliant ?? bga.goal_compliant;
     const acceptable = selectedPlan?.acceptable ?? bga.acceptable;
 
-    // Status banner
     const status = document.createElement("div");
     if (goalCompliant) {
       status.className = "goal-status compliant";
@@ -1060,7 +1521,6 @@ import {
     }
     body.appendChild(status);
 
-    // Violations
     if (bga.hard_constraint_violations.length > 0) {
       const h = document.createElement("div");
       h.style.marginBottom = "8px";
@@ -1090,7 +1550,6 @@ import {
       body.appendChild(s);
     }
 
-    // Goal params
     const grid = document.createElement("div");
     grid.className = "info-grid";
     const items = [
@@ -1144,6 +1603,24 @@ import {
       details.appendChild(pre);
       body.appendChild(details);
     }
+
+    renderTradeoffsInGoalPanel(data, body);
+  }
+
+  function renderTradeoffsInGoalPanel(data, container) {
+    if (!data.tradeoff_summary || data.tradeoff_summary.length === 0) return;
+    const section = document.createElement("div");
+    section.style.marginTop = "14px";
+    section.innerHTML = '<div class="scope-section-title">Tradeoff Summary</div>';
+    const ul = document.createElement("ul");
+    ul.className = "text-list tradeoffs";
+    data.tradeoff_summary.forEach(t => {
+      const li = document.createElement("li");
+      li.textContent = t;
+      ul.appendChild(li);
+    });
+    section.appendChild(ul);
+    container.appendChild(section);
   }
 
   function renderRisks(data) {

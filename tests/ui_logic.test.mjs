@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   applyEditableFieldsToPayload,
+  buildFunctionAnalysisModel,
   buildPlanComparison,
   buildSummaryModel,
   getUtilizationStatus,
@@ -227,4 +228,54 @@ test("buildSummaryModel explains dependency-rule schedule failures", () => {
   });
 
   assert.equal(summary.bannerText, "Plan is infeasible — dependency rules fail");
+});
+
+test("buildFunctionAnalysisModel extracts per-function metrics from selected_plan", () => {
+  const model = buildFunctionAnalysisModel({
+    planning_mode: "capacity_check",
+    capacity_dev_days: 100,
+    selected_plan: {
+      capacity_by_function: {eng: 70, qa: 30},
+      demand_by_function: {eng: 60, qa: 35},
+      utilization_by_function: {eng: 0.86, qa: 1.17},
+      buffer_by_function: {eng: 10, qa: -5},
+      bottleneck_functions: ["qa"],
+    },
+  });
+
+  assert.equal(model.rows.length, 2);
+  assert.equal(model.hasBottlenecks, true);
+  assert.deepEqual(model.bottleneckFunctions, ["qa"]);
+
+  const qaRow = model.rows.find((r) => r.name === "qa");
+  assert.ok(qaRow, "qa row should exist");
+  assert.equal(qaRow.isBottleneck, true);
+  assert.equal(qaRow.utilization, 1.17);
+  assert.equal(qaRow.buffer, -5);
+
+  const engRow = model.rows.find((r) => r.name === "eng");
+  assert.ok(engRow, "eng row should exist");
+  assert.equal(engRow.isBottleneck, false);
+  assert.equal(engRow.capacity, 70);
+});
+
+test("buildFunctionAnalysisModel falls back to top-level fields when selected_plan is absent", () => {
+  const model = buildFunctionAnalysisModel({
+    planning_mode: "planning_schedule",
+    capacity_by_function: {eng: 80, qa: 40, devops: 20},
+    demand_by_function: {eng: 72, qa: 36, devops: 18},
+    utilization_by_function: {eng: 0.9, qa: 0.9, devops: 0.9},
+    buffer_by_function: {eng: 8, qa: 4, devops: 2},
+    bottleneck_functions: [],
+  });
+
+  assert.equal(model.rows.length, 3);
+  assert.equal(model.hasBottlenecks, false);
+  assert.deepEqual(model.bottleneckFunctions, []);
+
+  const devopsRow = model.rows.find((r) => r.name === "devops");
+  assert.ok(devopsRow, "devops row should exist");
+  assert.equal(devopsRow.capacity, 20);
+  assert.equal(devopsRow.demand, 18);
+  assert.equal(devopsRow.utilization, 0.9);
 });

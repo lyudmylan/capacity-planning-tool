@@ -138,6 +138,37 @@ export function buildSummaryModel(result) {
   };
 }
 
+export function buildFunctionAnalysisModel(result) {
+  const selectedPlan = result.selected_plan ?? result;
+  const capacityByFunction = selectedPlan.capacity_by_function ?? {};
+  const demandByFunction = selectedPlan.demand_by_function ?? {};
+  const utilizationByFunction = selectedPlan.utilization_by_function ?? {};
+  const bufferByFunction = selectedPlan.buffer_by_function ?? {};
+  const bottleneckFunctions = selectedPlan.bottleneck_functions ?? result.bottleneck_functions ?? [];
+
+  const allFunctionNames = Array.from(new Set([
+    ...Object.keys(capacityByFunction),
+    ...Object.keys(demandByFunction),
+    ...Object.keys(utilizationByFunction),
+    ...Object.keys(bufferByFunction),
+  ]));
+
+  const rows = allFunctionNames.map((name) => ({
+    name,
+    capacity: capacityByFunction[name] ?? null,
+    demand: demandByFunction[name] ?? null,
+    utilization: utilizationByFunction[name] ?? null,
+    buffer: bufferByFunction[name] ?? null,
+    isBottleneck: bottleneckFunctions.includes(name),
+  }));
+
+  return {
+    rows,
+    hasBottlenecks: bottleneckFunctions.length > 0,
+    bottleneckFunctions: [...bottleneckFunctions],
+  };
+}
+
 function parseNumber(value) {
   const number = Number.parseFloat(value);
   return Number.isNaN(number) ? undefined : number;
