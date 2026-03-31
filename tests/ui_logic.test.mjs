@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   applyEditableFieldsToPayload,
+  buildFunctionAnalysis,
   buildPlanComparison,
   buildSummaryModel,
   getUtilizationStatus,
@@ -227,4 +228,50 @@ test("buildSummaryModel explains dependency-rule schedule failures", () => {
   });
 
   assert.equal(summary.bannerText, "Plan is infeasible — dependency rules fail");
+});
+
+test("buildFunctionAnalysis uses the selected plan as the primary result surface", () => {
+  const rows = buildFunctionAnalysis({
+    capacity_by_function: {
+      eng: 80,
+      qa: 24,
+      devops: 16,
+    },
+    baseline_plan: {
+      demand_by_function: {
+        eng: 72,
+        qa: 32,
+        devops: 8,
+      },
+      bottleneck_functions: ["qa"],
+    },
+    selected_plan: {
+      capacity_by_function: {
+        eng: 80,
+        qa: 24,
+        devops: 16,
+      },
+      demand_by_function: {
+        eng: 56,
+        qa: 16,
+        devops: 8,
+      },
+      utilization_by_function: {
+        eng: 0.7,
+        qa: 0.67,
+        devops: 0.5,
+      },
+      buffer_by_function: {
+        eng: 24,
+        qa: 8,
+        devops: 8,
+      },
+      bottleneck_functions: [],
+    },
+  });
+
+  assert.deepEqual(rows.map((row) => row.functionName), ["eng", "qa", "devops"]);
+  assert.equal(rows[1].demand, 16);
+  assert.equal(rows[1].isBottleneck, false);
+  assert.equal(rows[0].buffer, 24);
 });

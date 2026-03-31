@@ -138,6 +138,25 @@ export function buildSummaryModel(result) {
   };
 }
 
+export function buildFunctionAnalysis(result) {
+  const selectedPlan = result.selected_plan ?? result;
+  const capacityByFunction = selectedPlan.capacity_by_function ?? result.capacity_by_function ?? {};
+  const demandByFunction = selectedPlan.demand_by_function ?? result.demand_by_function ?? {};
+  const utilizationByFunction = selectedPlan.utilization_by_function ?? result.utilization_by_function ?? {};
+  const bufferByFunction = selectedPlan.buffer_by_function ?? result.buffer_by_function ?? {};
+  const bottlenecks = new Set(selectedPlan.bottleneck_functions ?? result.bottleneck_functions ?? []);
+
+  return Object.keys(capacityByFunction).map((functionName) => ({
+    functionName,
+    capacity: capacityByFunction[functionName],
+    demand: demandByFunction[functionName],
+    utilization: utilizationByFunction[functionName],
+    buffer: bufferByFunction[functionName],
+    isBottleneck: bottlenecks.has(functionName),
+    fitsCapacity: !bottlenecks.has(functionName),
+  }));
+}
+
 function parseNumber(value) {
   const number = Number.parseFloat(value);
   return Number.isNaN(number) ? undefined : number;

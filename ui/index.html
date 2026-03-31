@@ -207,6 +207,36 @@ select.example-select {
   margin-bottom: 12px;
 }
 .error-bar.visible { display: block; }
+.workspace-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+.workspace-heading-copy h2 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.workspace-kicker {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.workspace-heading p {
+  max-width: 520px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.panel-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
 /* Summary panel */
 .summary-grid {
   display: grid;
@@ -245,6 +275,72 @@ select.example-select {
 }
 .feasibility-banner.feasible { background: var(--green-bg); color: var(--green); border: 1px solid #bbf7d0; }
 .feasibility-banner.infeasible { background: var(--red-bg); color: var(--red); border: 1px solid #fecaca; }
+.function-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.function-card {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.function-card.bottleneck {
+  border-color: #fecaca;
+  background: linear-gradient(180deg, #fff8f8 0%, #fef2f2 100%);
+}
+.function-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.function-name {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.function-flag {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.function-flag.ok {
+  background: var(--green-bg);
+  color: var(--green);
+}
+.function-flag.bottleneck {
+  background: var(--red-bg);
+  color: var(--red);
+}
+.function-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.function-metric label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+  margin-bottom: 3px;
+}
+.function-metric strong {
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+.function-metric span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
 /* Scope panel */
 .feature-list { list-style: none; }
 .feature-item {
@@ -454,13 +550,25 @@ select.example-select {
 /* Hidden results */
 .results-area { display: none; }
 .results-area.visible { display: flex; flex-direction: column; gap: 20px; }
+.output-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 20px;
+}
 /* Two-column layout for output panels */
 .output-columns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 20px;
+}
+.output-stack {
+  display: flex;
+  flex-direction: column;
   gap: 20px;
 }
 @media (max-width: 800px) {
+  .workspace-heading { flex-direction: column; align-items: flex-start; }
+  .output-hero-grid,
   .output-columns { grid-template-columns: 1fr; }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -496,7 +604,7 @@ details[open] summary::before { content: "\25BC\00a0"; }
 
 <header class="app-header">
   <h1>Capacity Planner</h1>
-  <span class="version">v1</span>
+  <span class="version">v2</span>
 </header>
 
 <main class="workspace">
@@ -581,43 +689,61 @@ details[open] summary::before { content: "\25BC\00a0"; }
 
   <!-- Results -->
   <div class="results-area" id="results">
-    <!-- Summary Panel -->
-    <section class="panel" id="summary-panel">
-      <div class="panel-header"><h2>Plan Summary</h2></div>
-      <div class="panel-body">
-        <div id="feasibility-banner" class="feasibility-banner"></div>
-        <div class="summary-grid" id="summary-grid"></div>
+    <div class="workspace-heading">
+      <div class="workspace-heading-copy">
+        <span class="workspace-kicker">Planning Output</span>
+        <h2>Decision Workspace</h2>
       </div>
-    </section>
+      <p>Review the selected plan, function bottlenecks, scope movement, and goal or dependency outcomes without leaving the raw JSON behind.</p>
+    </div>
 
-    <!-- Risks / Suggestions / Tradeoffs -->
-    <div class="output-columns">
-      <section class="panel">
-        <div class="panel-header"><h2>Risks &amp; Tradeoffs</h2></div>
+    <div class="output-hero-grid">
+      <section class="panel" id="summary-panel">
+        <div class="panel-header">
+          <h2>Plan Summary</h2>
+          <div class="panel-meta" id="summary-context"></div>
+        </div>
         <div class="panel-body">
-          <div id="risks-container"></div>
-          <div id="tradeoff-container" style="margin-top:14px"></div>
+          <div id="feasibility-banner" class="feasibility-banner"></div>
+          <div class="summary-grid" id="summary-grid"></div>
         </div>
       </section>
-      <section class="panel">
-        <div class="panel-header"><h2>Suggestions</h2></div>
-        <div class="panel-body">
-          <div id="suggestions-container"></div>
-        </div>
+
+      <section class="panel" id="function-panel">
+        <div class="panel-header"><h2>Function Analysis</h2></div>
+        <div class="panel-body" id="function-body"></div>
       </section>
     </div>
 
-    <!-- Scope Panel -->
-    <section class="panel" id="scope-panel">
-      <div class="panel-header"><h2>Scope Decision</h2></div>
-      <div class="panel-body" id="scope-body"></div>
-    </section>
+    <div class="output-columns">
+      <div class="output-stack">
+        <section class="panel" id="scope-panel">
+          <div class="panel-header"><h2>Scope Decision</h2></div>
+          <div class="panel-body" id="scope-body"></div>
+        </section>
 
-    <!-- Goal Panel -->
-    <section class="panel" id="goal-panel">
-      <div class="panel-header"><h2>Business Goals</h2></div>
-      <div class="panel-body" id="goal-body"></div>
-    </section>
+        <section class="panel" id="goal-panel">
+          <div class="panel-header"><h2>Goals &amp; Dependencies</h2></div>
+          <div class="panel-body" id="goal-body"></div>
+        </section>
+      </div>
+
+      <div class="output-stack">
+        <section class="panel">
+          <div class="panel-header"><h2>Risks &amp; Tradeoffs</h2></div>
+          <div class="panel-body">
+            <div id="risks-container"></div>
+            <div id="tradeoff-container" style="margin-top:14px"></div>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-header"><h2>Suggestions</h2></div>
+          <div class="panel-body">
+            <div id="suggestions-container"></div>
+          </div>
+        </section>
+      </div>
+    </div>
 
     <!-- JSON Panel -->
     <section class="panel" id="json-panel">
@@ -647,6 +773,7 @@ details[open] summary::before { content: "\25BC\00a0"; }
 <script type="module">
 import {
   applyEditableFieldsToPayload,
+  buildFunctionAnalysis,
   buildPlanComparison,
   buildSummaryModel,
   getUtilizationStatus,
@@ -834,6 +961,7 @@ import {
   // --- Render results ---
   function renderResults(data) {
     renderSummary(data);
+    renderFunctionAnalysis(data);
     renderScope(data);
     renderGoals(data);
     renderRisks(data);
@@ -843,9 +971,13 @@ import {
 
   function renderSummary(data) {
     const summary = buildSummaryModel(data);
+    const planningMode = data.planning_mode ?? data.selected_plan?.planning_mode ?? "capacity_check";
+    const horizon = lastInputData?.planning_horizon ?? "unknown";
     const banner = document.getElementById("feasibility-banner");
+    const context = document.getElementById("summary-context");
     banner.className = summary.bannerClass;
     banner.textContent = summary.bannerText;
+    context.textContent = planningMode.replace("_", " ") + " / " + horizon.replace("_", " ");
 
     const utilClass = getUtilizationStatus(summary.utilization);
     const grid = document.getElementById("summary-grid");
@@ -867,6 +999,39 @@ import {
         '<div class="metric-value ' + m.cls + '">' + esc(String(m.value)) + '</div>';
       grid.appendChild(card);
     });
+  }
+
+  function renderFunctionAnalysis(data) {
+    const body = document.getElementById("function-body");
+    body.innerHTML = "";
+
+    const rows = buildFunctionAnalysis(data);
+    if (rows.length === 0) {
+      body.innerHTML = '<div class="scope-empty">No function metrics available</div>';
+      return;
+    }
+
+    const grid = document.createElement("div");
+    grid.className = "function-grid";
+    rows.forEach((row) => {
+      const card = document.createElement("div");
+      card.className = "function-card" + (row.isBottleneck ? " bottleneck" : "");
+      card.innerHTML =
+        '<div class="function-card-header">' +
+          '<div class="function-name">' + esc(row.functionName) + '</div>' +
+          '<span class="function-flag ' + (row.isBottleneck ? "bottleneck" : "ok") + '">' +
+            esc(row.isBottleneck ? "Bottleneck" : "In Range") +
+          "</span>" +
+        "</div>" +
+        '<div class="function-metrics">' +
+          '<div class="function-metric"><label>Capacity</label><strong>' + esc(formatDays(row.capacity)) + '</strong></div>' +
+          '<div class="function-metric"><label>Demand</label><strong>' + esc(formatDays(row.demand)) + '</strong></div>' +
+          '<div class="function-metric"><label>Utilization</label><strong>' + esc(row.utilization == null ? "n/a" : formatPercent(row.utilization)) + '</strong></div>' +
+          '<div class="function-metric"><label>Buffer</label><strong>' + esc(formatDays(row.buffer)) + '</strong></div>' +
+        "</div>";
+      grid.appendChild(card);
+    });
+    body.appendChild(grid);
   }
 
   function renderScope(data) {
