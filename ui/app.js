@@ -1,6 +1,13 @@
 export function readEditableFieldsFromPayload(data) {
   return {
+    planning_mode: data.planning_mode ?? "",
     planning_horizon: data.planning_horizon ?? "",
+    calendar_year: data.calendar_year ?? "",
+    half_year_index: data.half_year_index ?? "",
+    quarter_index: data.quarter_index ?? "",
+    month_index: data.month_index ?? "",
+    start_date: data.start_date ?? "",
+    end_date: data.end_date ?? "",
     working_days: data.working_days,
     holidays_days: data.holidays_days,
     vacation_days: data.vacation_days,
@@ -9,6 +16,24 @@ export function readEditableFieldsFromPayload(data) {
     sprint_days: data.sprint_days,
     overhead_days_per_sprint: data.overhead_days_per_sprint,
   };
+}
+
+export function validateInputPayload(jsonText) {
+  const text = typeof jsonText === "string" ? jsonText.trim() : "";
+  if (!text) {
+    return {valid: false, error: null};
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    return {valid: false, error: "Invalid JSON: " + e.message};
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    const kind = Array.isArray(parsed) ? "array" : typeof parsed;
+    return {valid: false, error: "Input must be a JSON object, not " + kind};
+  }
+  return {valid: true, error: null};
 }
 
 export function applyEditableFieldsToPayload(data, rawFieldValues) {
@@ -23,9 +48,15 @@ export function applyEditableFieldsToPayload(data, rawFieldValues) {
     "overhead_days_per_sprint",
   ];
 
+  if (rawFieldValues.planning_mode !== undefined && rawFieldValues.planning_mode !== "") {
+    next.planning_mode = rawFieldValues.planning_mode;
+  }
+
   const nextPlanningHorizon = rawFieldValues.planning_horizon;
   next.planning_horizon = nextPlanningHorizon;
-  normalizePeriodSelectors(next, nextPlanningHorizon, data);
+
+  normalizePeriodSelectors(next, nextPlanningHorizon, buildPeriodSource(data, rawFieldValues));
+
   for (const field of fields) {
     const value = parseNumber(rawFieldValues[field]);
     if (value !== undefined) {
@@ -125,6 +156,7 @@ export function buildSummaryModel(result) {
   }
 
   return {
+    planningMode,
     bannerClass,
     bannerText,
     capacityDevDays: result.capacity_dev_days,
@@ -169,6 +201,24 @@ export function buildFunctionAnalysisModel(result) {
   };
 }
 
+export function buildPeriodSource(data, rawFieldValues) {
+  const calendarYear = parseFormInteger(rawFieldValues.calendar_year) ?? data.calendar_year;
+  const halfYearIndex = parseFormInteger(rawFieldValues.half_year_index) ?? data.half_year_index;
+  const quarterIndex = parseFormInteger(rawFieldValues.quarter_index) ?? data.quarter_index;
+  const monthIndex = parseFormInteger(rawFieldValues.month_index) ?? data.month_index;
+  const startDate = isValidIsoDateString(rawFieldValues.start_date) ? rawFieldValues.start_date : data.start_date;
+  const endDate = isValidIsoDateString(rawFieldValues.end_date) ? rawFieldValues.end_date : data.end_date;
+  return {
+    ...data,
+    calendar_year: calendarYear,
+    half_year_index: halfYearIndex,
+    quarter_index: quarterIndex,
+    month_index: monthIndex,
+    start_date: startDate,
+    end_date: endDate,
+  };
+}
+
 function parseNumber(value) {
   const number = Number.parseFloat(value);
   return Number.isNaN(number) ? undefined : number;
@@ -183,29 +233,46 @@ function normalizePeriodSelectors(payload, planningHorizon, sourcePayload = payl
   delete payload.end_date;
 
   const inferred = inferPeriodSelectors(sourcePayload);
+  const calendarYear = inferred.calendar_year;
+  const halfYearIndex = inferred.half_year_index;
+  const quarterIndex = inferred.quarter_index;
+  const monthIndex = inferred.month_index;
+  const startDate = inferred.start_date;
+  const endDate = inferred.end_date;
+
   if (planningHorizon === "year") {
-    payload.calendar_year = inferred.calendar_year;
+    payload.calendar_year = calendarYear;
     return;
   }
   if (planningHorizon === "half_year") {
-    payload.calendar_year = inferred.calendar_year;
-    payload.half_year_index = inferred.half_year_index;
+    payload.calendar_year = calendarYear;
+    payload.half_year_index = halfYearIndex;
     return;
   }
   if (planningHorizon === "quarter") {
-    payload.calendar_year = inferred.calendar_year;
-    payload.quarter_index = inferred.quarter_index;
+    payload.calendar_year = calendarYear;
+    payload.quarter_index = quarterIndex;
     return;
   }
   if (planningHorizon === "month") {
-    payload.calendar_year = inferred.calendar_year;
-    payload.month_index = inferred.month_index;
+    payload.calendar_year = calendarYear;
+    payload.month_index = monthIndex;
     return;
   }
   if (planningHorizon === "sprint") {
-    payload.start_date = inferred.start_date;
-    payload.end_date = inferred.end_date;
+    payload.start_date = startDate;
+    payload.end_date = endDate;
   }
+}
+
+function parseFormInteger(value) {
+  if (value == null || value === "") return undefined;
+  const n = Number.parseInt(String(value), 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function isValidIsoDateString(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && parseIsoDate(value) !== undefined;
 }
 
 function inferPeriodSelectors(payload) {

@@ -255,6 +255,47 @@ select.example-select {
   margin-bottom: 10px;
 }
 .error-bar.visible { display: block; }
+.validation-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.validation-state::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.validation-state[data-state="draft_loaded"] {
+  background: #f8fafc;
+  color: #64748b;
+}
+.validation-state[data-state="input_invalid"],
+.validation-state[data-state="run_error"] {
+  background: var(--red-bg);
+  border-color: #fecaca;
+  color: var(--red);
+}
+.validation-state[data-state="ready_to_run"],
+.validation-state[data-state="result_ready"] {
+  background: var(--green-bg);
+  border-color: #bbf7d0;
+  color: var(--green);
+}
+.validation-state[data-state="running"] {
+  background: var(--accent-light);
+  border-color: #bfdbfe;
+  color: var(--accent);
+}
 /* No-results placeholder */
 .no-results-placeholder {
   display: flex;
@@ -779,9 +820,17 @@ details[open] summary::before { content: "\25BC\00a0"; }
           </div>
 
           <div id="form-tab" class="tab-content">
+            <div id="form-json-state" class="validation-state" data-state="draft_loaded">Paste valid JSON to enable structured editing.</div>
             <div class="structured-editor">
-              <div class="section-label">Planning Period</div>
+              <div class="section-label">Mode &amp; Period</div>
               <div class="field-grid">
+                <div class="field-group">
+                  <label>Planning Mode</label>
+                  <select id="f-mode">
+                    <option value="capacity_check">Capacity Check</option>
+                    <option value="planning_schedule">Planning Schedule</option>
+                  </select>
+                </div>
                 <div class="field-group">
                   <label>Planning Horizon</label>
                   <select id="f-horizon">
@@ -791,6 +840,51 @@ details[open] summary::before { content: "\25BC\00a0"; }
                     <option value="half_year">Half Year</option>
                     <option value="year">Year</option>
                   </select>
+                </div>
+                <div class="field-group" id="ps-calendar-year" style="display:none">
+                  <label>Calendar Year</label>
+                  <input type="number" id="f-calendar-year" min="2020" max="2035" step="1">
+                </div>
+                <div class="field-group" id="ps-half-year-index" style="display:none">
+                  <label>Half Year</label>
+                  <select id="f-half-year-index">
+                    <option value="1">H1</option>
+                    <option value="2">H2</option>
+                  </select>
+                </div>
+                <div class="field-group" id="ps-quarter-index" style="display:none">
+                  <label>Quarter</label>
+                  <select id="f-quarter-index">
+                    <option value="1">Q1</option>
+                    <option value="2">Q2</option>
+                    <option value="3">Q3</option>
+                    <option value="4">Q4</option>
+                  </select>
+                </div>
+                <div class="field-group" id="ps-month-index" style="display:none">
+                  <label>Month</label>
+                  <select id="f-month-index">
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                  </select>
+                </div>
+                <div class="field-group" id="ps-start-date" style="display:none">
+                  <label>Start Date</label>
+                  <input type="date" id="f-start-date">
+                </div>
+                <div class="field-group" id="ps-end-date" style="display:none">
+                  <label>End Date</label>
+                  <input type="date" id="f-end-date">
                 </div>
               </div>
 
@@ -939,6 +1033,7 @@ import {
   buildSummaryModel,
   getUtilizationStatus,
   readEditableFieldsFromPayload,
+  validateInputPayload,
 } from "/assets/app.js";
 
 (function() {
@@ -961,7 +1056,14 @@ import {
 
   // Form fields
   const formFields = {
+    mode: document.getElementById("f-mode"),
     horizon: document.getElementById("f-horizon"),
+    calendarYear: document.getElementById("f-calendar-year"),
+    halfYearIndex: document.getElementById("f-half-year-index"),
+    quarterIndex: document.getElementById("f-quarter-index"),
+    monthIndex: document.getElementById("f-month-index"),
+    startDate: document.getElementById("f-start-date"),
+    endDate: document.getElementById("f-end-date"),
     workingDays: document.getElementById("f-working-days"),
     holidays: document.getElementById("f-holidays"),
     vacation: document.getElementById("f-vacation"),
@@ -988,6 +1090,7 @@ import {
     if (this.value) {
       jsonInput.value = this.value;
       syncFormFromJson();
+      refreshValidationState();
     }
     this.selectedIndex = 0;
   });
@@ -1015,6 +1118,7 @@ import {
     reader.onload = function(e) {
       jsonInput.value = e.target.result;
       syncFormFromJson();
+      refreshValidationState();
     };
     reader.readAsText(file);
   }
@@ -1033,18 +1137,61 @@ import {
     });
   });
 
+  // --- Validation state ---
+  const formJsonState = document.getElementById("form-json-state");
+
+  function setFormState(state, message) {
+    formJsonState.dataset.state = state;
+    formJsonState.textContent = message;
+  }
+
+  function refreshValidationState() {
+    const result = validateInputPayload(jsonInput.value);
+    if (result.error) {
+      showInputError(result.error);
+      setFormState("input_invalid", "Input invalid");
+    } else if (!result.valid) {
+      hideInputError();
+      setFormState("draft_loaded", "Paste valid JSON to enable structured editing.");
+    } else {
+      hideInputError();
+      setFormState("ready_to_run", "Ready to run");
+    }
+    runBtn.disabled = !result.valid;
+  }
+
+  // --- Period selector visibility ---
+  function updatePeriodSelectorVisibility() {
+    const h = formFields.horizon.value;
+    const showYear = h === "year" || h === "half_year" || h === "quarter" || h === "month";
+    document.getElementById("ps-calendar-year").style.display = showYear ? "" : "none";
+    document.getElementById("ps-half-year-index").style.display = h === "half_year" ? "" : "none";
+    document.getElementById("ps-quarter-index").style.display = h === "quarter" ? "" : "none";
+    document.getElementById("ps-month-index").style.display = h === "month" ? "" : "none";
+    document.getElementById("ps-start-date").style.display = h === "sprint" ? "" : "none";
+    document.getElementById("ps-end-date").style.display = h === "sprint" ? "" : "none";
+  }
+
   // --- Form <-> JSON sync ---
   function syncFormFromJson() {
     try {
       const editableFields = readEditableFieldsFromPayload(JSON.parse(jsonInput.value));
-      if (editableFields.planning_horizon) formFields.horizon.value = editableFields.planning_horizon;
-      if (editableFields.working_days != null) formFields.workingDays.value = editableFields.working_days;
-      if (editableFields.holidays_days != null) formFields.holidays.value = editableFields.holidays_days;
-      if (editableFields.vacation_days != null) formFields.vacation.value = editableFields.vacation_days;
-      if (editableFields.sick_days != null) formFields.sick.value = editableFields.sick_days;
-      if (editableFields.focus_factor != null) formFields.focus.value = editableFields.focus_factor;
-      if (editableFields.sprint_days != null) formFields.sprintDays.value = editableFields.sprint_days;
-      if (editableFields.overhead_days_per_sprint != null) formFields.overhead.value = editableFields.overhead_days_per_sprint;
+      formFields.mode.value = editableFields.planning_mode || "capacity_check";
+      formFields.horizon.value = editableFields.planning_horizon || "quarter";
+      formFields.calendarYear.value = editableFields.calendar_year === "" ? "" : editableFields.calendar_year;
+      formFields.halfYearIndex.value = editableFields.half_year_index === "" ? "1" : String(editableFields.half_year_index);
+      formFields.quarterIndex.value = editableFields.quarter_index === "" ? "1" : String(editableFields.quarter_index);
+      formFields.monthIndex.value = editableFields.month_index === "" ? "1" : String(editableFields.month_index);
+      formFields.startDate.value = editableFields.start_date || "";
+      formFields.endDate.value = editableFields.end_date || "";
+      formFields.workingDays.value = editableFields.working_days ?? "";
+      formFields.holidays.value = editableFields.holidays_days ?? "";
+      formFields.vacation.value = editableFields.vacation_days ?? "";
+      formFields.sick.value = editableFields.sick_days ?? "";
+      formFields.focus.value = editableFields.focus_factor ?? "";
+      formFields.sprintDays.value = editableFields.sprint_days ?? "";
+      formFields.overhead.value = editableFields.overhead_days_per_sprint ?? "";
+      updatePeriodSelectorVisibility();
     } catch(e) { /* ignore parse errors during typing */ }
   }
 
@@ -1052,7 +1199,14 @@ import {
     try {
       const data = JSON.parse(jsonInput.value);
       const nextData = applyEditableFieldsToPayload(data, {
+        planning_mode: formFields.mode.value,
         planning_horizon: formFields.horizon.value,
+        calendar_year: formFields.calendarYear.value,
+        half_year_index: formFields.halfYearIndex.value,
+        quarter_index: formFields.quarterIndex.value,
+        month_index: formFields.monthIndex.value,
+        start_date: formFields.startDate.value,
+        end_date: formFields.endDate.value,
         working_days: formFields.workingDays.value,
         holidays_days: formFields.holidays.value,
         vacation_days: formFields.vacation.value,
@@ -1062,14 +1216,28 @@ import {
         overhead_days_per_sprint: formFields.overhead.value,
       });
       jsonInput.value = JSON.stringify(nextData, null, 2);
+      refreshValidationState();
     } catch(e) { /* ignore if JSON is invalid */ }
   }
 
-  Object.values(formFields).forEach(field => {
-    field.addEventListener("change", syncJsonFromForm);
-    field.addEventListener("input", syncJsonFromForm);
+  formFields.horizon.addEventListener("change", function() {
+    updatePeriodSelectorVisibility();
+    syncJsonFromForm();
   });
-  jsonInput.addEventListener("input", syncFormFromJson);
+  Object.values(formFields).forEach(field => {
+    if (field !== formFields.horizon) {
+      field.addEventListener("change", syncJsonFromForm);
+      field.addEventListener("input", syncJsonFromForm);
+    }
+  });
+  jsonInput.addEventListener("input", function() {
+    syncFormFromJson();
+    refreshValidationState();
+  });
+
+  // Initialize
+  updatePeriodSelectorVisibility();
+  refreshValidationState();
 
   // --- Run planner ---
   runBtn.addEventListener("click", runPlanner);
@@ -1087,6 +1255,7 @@ import {
 
     runBtn.disabled = true;
     runBtn.innerHTML = '<span class="spinner"></span>Running...';
+    setFormState("running", "Running planner");
 
     try {
       const resp = await fetch("/api/plan", {
@@ -1098,6 +1267,7 @@ import {
       if (!resp.ok) {
         showRunError(data.error || "Planner error: server returned " + resp.status);
         showDecisionWorkspace(false);
+        setFormState("run_error", "Run error");
         return;
       }
       lastResult = data;
@@ -1106,12 +1276,14 @@ import {
       outputJson.textContent = JSON.stringify(data, null, 2);
       renderResults(data);
       showDecisionWorkspace(true);
+      setFormState("result_ready", "Result ready");
       document.getElementById("summary-panel").scrollIntoView({behavior: "smooth", block: "start"});
     } catch(e) {
       showRunError("Network error: " + e.message);
       showDecisionWorkspace(false);
+      setFormState("run_error", "Run error");
     } finally {
-      runBtn.disabled = false;
+      runBtn.disabled = !validateInputPayload(jsonInput.value).valid;
       runBtn.textContent = "Run Planner";
     }
   }
