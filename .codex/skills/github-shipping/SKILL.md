@@ -23,6 +23,8 @@ description: "Use when the user wants to finish, ship, push, merge, or complete 
 5. After CI turns green, do one final review sweep across those same three surfaces.
 6. Do not treat a PR as ready just because CI is green.
 7. If there are actionable review findings, address them or explicitly decide to defer them before merge.
+8. In this repo, prefer `scripts/pr_ready_check.sh <pr-number>` for the final merge-readiness sweep.
+9. Respect the `codex-review-gate` required check unless the repo owner explicitly chooses the `codex-review-skipped` override label.
 
 ## What this skill adds
 
@@ -48,5 +50,7 @@ For GitHub PRs in this repo, check:
 3. Inline review comments
    - example: `gh api repos/<owner>/<repo>/pulls/<number>/comments`
 4. Re-run the three review checks once after CI is green and immediately before merge
+5. Prefer `scripts/pr_ready_check.sh <number>` as the final single-command summary before merge
+6. If `codex-review-gate` is failing, wait for the Codex review to arrive or explicitly apply the `codex-review-skipped` label before merge
 
 If any inline or review comments contain actionable findings, handle them before merge or call them out explicitly to the user.

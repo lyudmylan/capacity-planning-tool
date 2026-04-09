@@ -848,6 +848,7 @@ details[open] summary::before { content: "\25BC\00a0"; }
                 <div class="field-group" id="ps-half-year-index" style="display:none">
                   <label>Half Year</label>
                   <select id="f-half-year-index">
+                    <option value="">Auto</option>
                     <option value="1">H1</option>
                     <option value="2">H2</option>
                   </select>
@@ -855,6 +856,7 @@ details[open] summary::before { content: "\25BC\00a0"; }
                 <div class="field-group" id="ps-quarter-index" style="display:none">
                   <label>Quarter</label>
                   <select id="f-quarter-index">
+                    <option value="">Auto</option>
                     <option value="1">Q1</option>
                     <option value="2">Q2</option>
                     <option value="3">Q3</option>
@@ -864,6 +866,7 @@ details[open] summary::before { content: "\25BC\00a0"; }
                 <div class="field-group" id="ps-month-index" style="display:none">
                   <label>Month</label>
                   <select id="f-month-index">
+                    <option value="">Auto</option>
                     <option value="1">January</option>
                     <option value="2">February</option>
                     <option value="3">March</option>
@@ -1030,6 +1033,7 @@ import {
   applyEditableFieldsToPayload,
   buildFunctionAnalysisModel,
   buildPlanComparison,
+  buildStructuredFormState,
   buildSummaryModel,
   getUtilizationStatus,
   readEditableFieldsFromPayload,
@@ -1176,21 +1180,22 @@ import {
   function syncFormFromJson() {
     try {
       const editableFields = readEditableFieldsFromPayload(JSON.parse(jsonInput.value));
-      formFields.mode.value = editableFields.planning_mode || "capacity_check";
-      formFields.horizon.value = editableFields.planning_horizon || "quarter";
-      formFields.calendarYear.value = editableFields.calendar_year === "" ? "" : editableFields.calendar_year;
-      formFields.halfYearIndex.value = editableFields.half_year_index === "" ? "1" : String(editableFields.half_year_index);
-      formFields.quarterIndex.value = editableFields.quarter_index === "" ? "1" : String(editableFields.quarter_index);
-      formFields.monthIndex.value = editableFields.month_index === "" ? "1" : String(editableFields.month_index);
-      formFields.startDate.value = editableFields.start_date || "";
-      formFields.endDate.value = editableFields.end_date || "";
-      formFields.workingDays.value = editableFields.working_days ?? "";
-      formFields.holidays.value = editableFields.holidays_days ?? "";
-      formFields.vacation.value = editableFields.vacation_days ?? "";
-      formFields.sick.value = editableFields.sick_days ?? "";
-      formFields.focus.value = editableFields.focus_factor ?? "";
-      formFields.sprintDays.value = editableFields.sprint_days ?? "";
-      formFields.overhead.value = editableFields.overhead_days_per_sprint ?? "";
+      const formState = buildStructuredFormState(editableFields);
+      formFields.mode.value = formState.planning_mode;
+      formFields.horizon.value = formState.planning_horizon;
+      formFields.calendarYear.value = formState.calendar_year;
+      formFields.halfYearIndex.value = formState.half_year_index;
+      formFields.quarterIndex.value = formState.quarter_index;
+      formFields.monthIndex.value = formState.month_index;
+      formFields.startDate.value = formState.start_date;
+      formFields.endDate.value = formState.end_date;
+      formFields.workingDays.value = formState.working_days;
+      formFields.holidays.value = formState.holidays_days;
+      formFields.vacation.value = formState.vacation_days;
+      formFields.sick.value = formState.sick_days;
+      formFields.focus.value = formState.focus_factor;
+      formFields.sprintDays.value = formState.sprint_days;
+      formFields.overhead.value = formState.overhead_days_per_sprint;
       updatePeriodSelectorVisibility();
     } catch(e) { /* ignore parse errors during typing */ }
   }
