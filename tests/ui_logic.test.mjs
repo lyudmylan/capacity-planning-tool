@@ -4,15 +4,20 @@ import assert from "node:assert/strict";
 import {
   applyEditableFieldsToPayload,
   buildFunctionAnalysisModel,
+  buildPeriodSource,
   buildPlanComparison,
   buildSummaryModel,
   getUtilizationStatus,
   readEditableFieldsFromPayload,
+  validateInputPayload,
 } from "../ui/app.js";
 
 test("readEditableFieldsFromPayload reflects pasted JSON values", () => {
   const editableFields = readEditableFieldsFromPayload({
-    planning_horizon: "year",
+    planning_mode: "capacity_check",
+    planning_horizon: "quarter",
+    calendar_year: 2026,
+    quarter_index: 2,
     working_days: 220,
     holidays_days: 12,
     vacation_days: 18,
@@ -23,7 +28,14 @@ test("readEditableFieldsFromPayload reflects pasted JSON values", () => {
   });
 
   assert.deepEqual(editableFields, {
-    planning_horizon: "year",
+    planning_mode: "capacity_check",
+    planning_horizon: "quarter",
+    calendar_year: 2026,
+    half_year_index: "",
+    quarter_index: 2,
+    month_index: "",
+    start_date: "",
+    end_date: "",
     working_days: 220,
     holidays_days: 12,
     vacation_days: 18,
@@ -32,6 +44,20 @@ test("readEditableFieldsFromPayload reflects pasted JSON values", () => {
     sprint_days: 15,
     overhead_days_per_sprint: 3,
   });
+});
+
+test("readEditableFieldsFromPayload includes sprint period selectors when present", () => {
+  const editableFields = readEditableFieldsFromPayload({
+    planning_mode: "planning_schedule",
+    planning_horizon: "sprint",
+    start_date: "2026-06-01",
+    end_date: "2026-06-14",
+  });
+
+  assert.equal(editableFields.planning_mode, "planning_schedule");
+  assert.equal(editableFields.start_date, "2026-06-01");
+  assert.equal(editableFields.end_date, "2026-06-14");
+  assert.equal(editableFields.calendar_year, "");
 });
 
 test("applyEditableFieldsToPayload preserves unrelated pasted JSON values", () => {
@@ -130,6 +156,130 @@ test("applyEditableFieldsToPayload retains existing sprint dates when switching 
 
   assert.equal(updated.start_date, "2026-05-05");
   assert.equal(updated.end_date, "2026-05-19");
+});
+
+test("applyEditableFieldsToPayload sets planning_mode from form value", () => {
+  const original = {
+    planning_horizon: "quarter",
+    calendar_year: 2026,
+    quarter_index: 1,
+    roadmap: {features: []},
+  };
+
+  const updated = applyEditableFieldsToPayload(original, {
+    planning_mode: "planning_schedule",
+    planning_horizon: "quarter",
+    working_days: "",
+    holidays_days: "",
+    vacation_days: "",
+    sick_days: "",
+    focus_factor: "",
+    sprint_days: "",
+    overhead_days_per_sprint: "",
+  });
+
+  assert.equal(updated.planning_mode, "planning_schedule");
+  assert.equal(updated.planning_horizon, "quarter");
+});
+
+test("applyEditableFieldsToPayload uses explicit calendar_year from form", () => {
+  const original = {
+    planning_horizon: "quarter",
+    calendar_year: 2025,
+    quarter_index: 1,
+    roadmap: {features: []},
+  };
+
+  const updated = applyEditableFieldsToPayload(original, {
+    planning_horizon: "quarter",
+    calendar_year: "2027",
+    quarter_index: "3",
+    working_days: "",
+    holidays_days: "",
+    vacation_days: "",
+    sick_days: "",
+    focus_factor: "",
+    sprint_days: "",
+    overhead_days_per_sprint: "",
+  });
+
+  assert.equal(updated.calendar_year, 2027);
+  assert.equal(updated.quarter_index, 3);
+});
+
+test("applyEditableFieldsToPayload uses explicit sprint dates from form", () => {
+  const original = {
+    planning_horizon: "sprint",
+    start_date: "2026-01-01",
+    end_date: "2026-01-14",
+    roadmap: {features: []},
+  };
+
+  const updated = applyEditableFieldsToPayload(original, {
+    planning_horizon: "sprint",
+    start_date: "2026-09-01",
+    end_date: "2026-09-14",
+    working_days: "",
+    holidays_days: "",
+    vacation_days: "",
+    sick_days: "",
+    focus_factor: "",
+    sprint_days: "",
+    overhead_days_per_sprint: "",
+  });
+
+  assert.equal(updated.start_date, "2026-09-01");
+  assert.equal(updated.end_date, "2026-09-14");
+});
+
+test("applyEditableFieldsToPayload ignores empty-string period selector form values", () => {
+  const original = {
+    planning_horizon: "quarter",
+    calendar_year: 2026,
+    quarter_index: 2,
+    roadmap: {features: []},
+  };
+
+  // Empty string calendar_year should fall back to inferring from source
+  const updated = applyEditableFieldsToPayload(original, {
+    planning_horizon: "quarter",
+    calendar_year: "",
+    quarter_index: "",
+    working_days: "",
+    holidays_days: "",
+    vacation_days: "",
+    sick_days: "",
+    focus_factor: "",
+    sprint_days: "",
+    overhead_days_per_sprint: "",
+  });
+
+  assert.equal(updated.calendar_year, 2026);
+  assert.equal(updated.quarter_index, 2);
+});
+
+test("validateInputPayload returns invalid with no error for empty input", () => {
+  const result = validateInputPayload("");
+  assert.equal(result.valid, false);
+  assert.equal(result.error, null);
+});
+
+test("validateInputPayload returns invalid with error for malformed JSON", () => {
+  const result = validateInputPayload("{bad json}");
+  assert.equal(result.valid, false);
+  assert.ok(result.error.startsWith("Invalid JSON:"));
+});
+
+test("validateInputPayload returns invalid with error for JSON array", () => {
+  const result = validateInputPayload("[1,2,3]");
+  assert.equal(result.valid, false);
+  assert.ok(result.error.includes("array"));
+});
+
+test("validateInputPayload returns valid for a well-formed JSON object", () => {
+  const result = validateInputPayload(JSON.stringify({planning_horizon: "quarter", roadmap: {features: []}}));
+  assert.equal(result.valid, true);
+  assert.equal(result.error, null);
 });
 
 test("getUtilizationStatus matches planner target semantics", () => {
@@ -278,4 +428,78 @@ test("buildFunctionAnalysisModel falls back to top-level fields when selected_pl
   assert.equal(devopsRow.capacity, 20);
   assert.equal(devopsRow.demand, 18);
   assert.equal(devopsRow.utilization, 0.9);
+});
+
+test("readEditableFieldsFromPayload reads planning_mode and all period selectors from payload", () => {
+  const fields = readEditableFieldsFromPayload({
+    planning_mode: "planning_schedule",
+    planning_horizon: "quarter",
+    calendar_year: 2026,
+    half_year_index: 1,
+    quarter_index: 2,
+    month_index: 4,
+    start_date: "2026-04-01",
+    end_date: "2026-04-14",
+  });
+
+  assert.equal(fields.planning_mode, "planning_schedule");
+  assert.equal(fields.calendar_year, 2026);
+  assert.equal(fields.half_year_index, 1);
+  assert.equal(fields.quarter_index, 2);
+  assert.equal(fields.month_index, 4);
+  assert.equal(fields.start_date, "2026-04-01");
+  assert.equal(fields.end_date, "2026-04-14");
+});
+
+test("applyEditableFieldsToPayload propagates planning_mode when switching modes", () => {
+  const original = {
+    planning_mode: "capacity_check",
+    planning_horizon: "quarter",
+    calendar_year: 2026,
+    quarter_index: 1,
+    roadmap: {features: []},
+  };
+
+  const updated = applyEditableFieldsToPayload(original, {
+    planning_mode: "planning_schedule",
+    planning_horizon: "quarter",
+    working_days: "",
+    holidays_days: "",
+    vacation_days: "",
+    sick_days: "",
+    focus_factor: "",
+    sprint_days: "",
+    overhead_days_per_sprint: "",
+  });
+
+  assert.equal(updated.planning_mode, "planning_schedule");
+});
+
+test("applyEditableFieldsToPayload uses form-provided quarter_index instead of inferring it", () => {
+  const original = {
+    planning_horizon: "quarter",
+    calendar_year: 2026,
+    quarter_index: 1,
+    month_index: 2,
+    roadmap: {features: []},
+  };
+
+  // Form explicitly selects Q3, overriding the Q1 in the original payload
+  const updated = applyEditableFieldsToPayload(original, {
+    planning_horizon: "quarter",
+    calendar_year: "2026",
+    quarter_index: "3",
+    working_days: "",
+    holidays_days: "",
+    vacation_days: "",
+    sick_days: "",
+    focus_factor: "",
+    sprint_days: "",
+    overhead_days_per_sprint: "",
+  });
+
+  assert.equal(updated.quarter_index, 3);
+  assert.equal(updated.calendar_year, 2026);
+  // month_index not present for quarter horizon
+  assert.equal(updated.month_index, undefined);
 });
