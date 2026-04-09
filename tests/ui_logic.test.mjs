@@ -6,6 +6,7 @@ import {
   buildFunctionAnalysisModel,
   buildPeriodSource,
   buildPlanComparison,
+  buildStructuredFormState,
   buildSummaryModel,
   getUtilizationStatus,
   readEditableFieldsFromPayload,
@@ -58,6 +59,26 @@ test("readEditableFieldsFromPayload includes sprint period selectors when presen
   assert.equal(editableFields.start_date, "2026-06-01");
   assert.equal(editableFields.end_date, "2026-06-14");
   assert.equal(editableFields.calendar_year, "");
+});
+
+test("buildStructuredFormState keeps absent period selectors blank", () => {
+  const formState = buildStructuredFormState({
+    planning_mode: "capacity_check",
+    planning_horizon: "quarter",
+    calendar_year: 2026,
+    half_year_index: "",
+    quarter_index: 3,
+    month_index: "",
+    start_date: "",
+    end_date: "",
+  });
+
+  assert.equal(formState.planning_mode, "capacity_check");
+  assert.equal(formState.planning_horizon, "quarter");
+  assert.equal(formState.calendar_year, "2026");
+  assert.equal(formState.half_year_index, "");
+  assert.equal(formState.quarter_index, "3");
+  assert.equal(formState.month_index, "");
 });
 
 test("applyEditableFieldsToPayload preserves unrelated pasted JSON values", () => {
@@ -256,6 +277,31 @@ test("applyEditableFieldsToPayload ignores empty-string period selector form val
 
   assert.equal(updated.calendar_year, 2026);
   assert.equal(updated.quarter_index, 2);
+});
+
+test("applyEditableFieldsToPayload infers month from existing quarter when month selector is blank", () => {
+  const original = {
+    planning_horizon: "quarter",
+    calendar_year: 2026,
+    quarter_index: 3,
+    roadmap: {features: []},
+  };
+
+  const updated = applyEditableFieldsToPayload(original, {
+    planning_horizon: "month",
+    calendar_year: "2026",
+    month_index: "",
+    working_days: "",
+    holidays_days: "",
+    vacation_days: "",
+    sick_days: "",
+    focus_factor: "",
+    sprint_days: "",
+    overhead_days_per_sprint: "",
+  });
+
+  assert.equal(updated.calendar_year, 2026);
+  assert.equal(updated.month_index, 7);
 });
 
 test("validateInputPayload returns invalid with no error for empty input", () => {

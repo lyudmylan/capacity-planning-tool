@@ -18,6 +18,26 @@ export function readEditableFieldsFromPayload(data) {
   };
 }
 
+export function buildStructuredFormState(editableFields) {
+  return {
+    planning_mode: editableFields.planning_mode || "capacity_check",
+    planning_horizon: editableFields.planning_horizon || "quarter",
+    calendar_year: editableFields.calendar_year === "" ? "" : String(editableFields.calendar_year),
+    half_year_index: editableFields.half_year_index === "" ? "" : String(editableFields.half_year_index),
+    quarter_index: editableFields.quarter_index === "" ? "" : String(editableFields.quarter_index),
+    month_index: editableFields.month_index === "" ? "" : String(editableFields.month_index),
+    start_date: editableFields.start_date || "",
+    end_date: editableFields.end_date || "",
+    working_days: editableFields.working_days ?? "",
+    holidays_days: editableFields.holidays_days ?? "",
+    vacation_days: editableFields.vacation_days ?? "",
+    sick_days: editableFields.sick_days ?? "",
+    focus_factor: editableFields.focus_factor ?? "",
+    sprint_days: editableFields.sprint_days ?? "",
+    overhead_days_per_sprint: editableFields.overhead_days_per_sprint ?? "",
+  };
+}
+
 export function validateInputPayload(jsonText) {
   const text = typeof jsonText === "string" ? jsonText.trim() : "";
   if (!text) {
