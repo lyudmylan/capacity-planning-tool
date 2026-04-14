@@ -2,7 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  applyBusinessGoalsToPayload,
   applyEditableFieldsToPayload,
+  applyOrgToPayload,
+  applyRoadmapFeaturesToPayload,
+  applySchedulePolicyToPayload,
   buildFunctionAnalysisModel,
   buildModeAwareSummaryContext,
   buildPeriodSource,
@@ -10,7 +14,11 @@ import {
   buildStructuredFormState,
   buildSummaryModel,
   getUtilizationStatus,
+  readBusinessGoalsFromPayload,
   readEditableFieldsFromPayload,
+  readOrgFromPayload,
+  readRoadmapFeaturesFromPayload,
+  readSchedulePolicyFromPayload,
   validateInputPayload,
 } from "../ui/app.js";
 
@@ -707,4 +715,602 @@ test("buildFunctionAnalysisModel fits is null when function_capacity_fit is abse
 
   const engRow = model.rows.find((r) => r.name === "eng");
   assert.equal(engRow.fits, null);
+});
+
+// --- readOrgFromPayload / applyOrgToPayload ---
+
+test("readOrgFromPayload extracts teams with members and typed country profile values", () => {
+  const data = {
+    rd_org: {
+      teams: [{
+        name: "Core Product",
+        members: [
+          {id: "eng-1", function: "eng", seniority: "Senior", country_profile: "us"},
+          {id: "qa-1", function: "qa", seniority: "Mid", capacity_percent: 0.5, country_profile: "us"},
+        ],
+      }],
+      country_profiles: [{id: "us", country_code: "US", vacation_days_per_employee: 18, sick_days_per_employee: 8}],
+    },
+  };
+  const org = readOrgFromPayload(data);
+  assert.equal(org.teams.length, 1);
+  assert.equal(org.teams[0].name, "Core Product");
+  assert.equal(org.teams[0].members[0].id, "eng-1");
+  assert.equal(org.teams[0].members[0].capacity_percent, "");
+  assert.equal(org.teams[0].members[1].capacity_percent, "0.5");
+  assert.equal(org.country_profiles[0].vacation_days_per_employee, 18);
+  assert.equal(org.country_profiles[0].sick_days_per_employee, 8);
+});
+
+test("readOrgFromPayload returns empty arrays when rd_org is absent", () => {
+  const org = readOrgFromPayload({});
+  assert.deepEqual(org.teams, []);
+  assert.deepEqual(org.country_profiles, []);
+});
+
+test("applyOrgToPayload round-trips teams and country profiles", () => {
+  const data = {
+    rd_org: {
+      teams: [{
+        name: "Core Product",
+        members: [{id: "eng-1", function: "eng", seniority: "Senior", country_profile: "us"}],
+      }],
+      country_profiles: [{id: "us", country_code: "US", vacation_days_per_employee: 18, sick_days_per_employee: 8}],
+    },
+  };
+  const org = readOrgFromPayload(data);
+  const result = applyOrgToPayload(data, org);
+  assert.equal(result.rd_org.teams[0].name, "Core Product");
+  assert.equal(result.rd_org.teams[0].members[0].id, "eng-1");
+  assert.equal(result.rd_org.country_profiles[0].id, "us");
+  assert.equal(result.rd_org.country_profiles[0].vacation_days_per_employee, 18);
+});
+
+test("applyOrgToPayload preserves unknown rd_org fields (e.g. org_schedule_policies)", () => {
+  const data = {
+    rd_org: {
+      org_schedule_policies: {post_dev_min_ratio: {qa: 0.4}},
+      teams: [{name: "T", members: [{id: "m1", function: "eng", seniority: "Senior", country_profile: "us"}]}],
+      country_profiles: [],
+    },
+  };
+  const org = readOrgFromPayload(data);
+  const result = applyOrgToPayload(data, org);
+  assert.deepEqual(result.rd_org.org_schedule_policies, {post_dev_min_ratio: {qa: 0.4}});
+});
+
+test("applyOrgToPayload preserves unknown member fields via id matching", () => {
+  const data = {
+    rd_org: {
+      teams: [{
+        name: "T",
+        members: [{id: "eng-1", function: "eng", seniority: "Senior", country_profile: "us", custom_tag: "alpha"}],
+      }],
+      country_profiles: [],
+    },
+  };
+  const org = readOrgFromPayload(data);
+  const result = applyOrgToPayload(data, org);
+  assert.equal(result.rd_org.teams[0].members[0].custom_tag, "alpha");
+});
+
+test("applyOrgToPayload omits capacity_percent when form value is empty", () => {
+  const data = {
+    rd_org: {
+      teams: [{
+        name: "T",
+        members: [{id: "m1", function: "eng", seniority: "Senior", country_profile: "us"}],
+      }],
+      country_profiles: [],
+    },
+  };
+  const org = readOrgFromPayload(data);
+  const result = applyOrgToPayload(data, org);
+  assert.equal("capacity_percent" in result.rd_org.teams[0].members[0], false);
+});
+
+// --- readSchedulePolicyFromPayload / applySchedulePolicyToPayload ---
+
+test("readSchedulePolicyFromPayload extracts qa and devops ratios as typed numbers", () => {
+  const data = {
+    rd_org: {org_schedule_policies: {post_dev_min_ratio: {qa: 0.4, devops: 0.3}}},
+  };
+  const policy = readSchedulePolicyFromPayload(data);
+  assert.equal(policy.qa, 0.4);
+  assert.equal(policy.devops, 0.3);
+});
+
+test("readSchedulePolicyFromPayload returns nulls when absent", () => {
+  const policy = readSchedulePolicyFromPayload({});
+  assert.equal(policy.qa, null);
+  assert.equal(policy.devops, null);
+});
+
+test("applySchedulePolicyToPayload round-trips schedule policies for planning_schedule", () => {
+  const data = {
+    planning_mode: "planning_schedule",
+    rd_org: {org_schedule_policies: {post_dev_min_ratio: {qa: 0.4, devops: 0.4}}, teams: []},
+  };
+  const policy = readSchedulePolicyFromPayload(data);
+  const result = applySchedulePolicyToPayload(data, policy);
+  assert.equal(result.rd_org.org_schedule_policies.post_dev_min_ratio.qa, 0.4);
+  assert.equal(result.rd_org.org_schedule_policies.post_dev_min_ratio.devops, 0.4);
+});
+
+test("applySchedulePolicyToPayload preserves unknown rd_org fields", () => {
+  const data = {
+    planning_mode: "planning_schedule",
+    rd_org: {
+      org_schedule_policies: {post_dev_min_ratio: {qa: 0.4}, other_policy: "keep"},
+      teams: [{name: "T", members: []}],
+    },
+  };
+  const result = applySchedulePolicyToPayload(data, {qa: 0.4, devops: 0.3});
+  assert.equal(result.rd_org.org_schedule_policies.other_policy, "keep");
+  assert.equal(result.rd_org.teams[0].name, "T");
+});
+
+test("applySchedulePolicyToPayload removes key when typed value is null", () => {
+  const data = {
+    planning_mode: "planning_schedule",
+    rd_org: {org_schedule_policies: {post_dev_min_ratio: {qa: 0.4, devops: 0.4}}, teams: []},
+  };
+  const result = applySchedulePolicyToPayload(data, {qa: 0.4, devops: null});
+  assert.equal(result.rd_org.org_schedule_policies.post_dev_min_ratio.qa, 0.4);
+  assert.equal("devops" in result.rd_org.org_schedule_policies.post_dev_min_ratio, false);
+});
+
+// --- readRoadmapFeaturesFromPayload / applyRoadmapFeaturesToPayload ---
+
+test("readRoadmapFeaturesFromPayload extracts features with per-function estimates", () => {
+  const data = {
+    roadmap: {
+      features: [{id: "f1", name: "Feature One", priority: "High", estimates: {eng: "M", qa: "S", devops: "XS"}}],
+    },
+  };
+  const features = readRoadmapFeaturesFromPayload(data);
+  assert.equal(features.length, 1);
+  assert.equal(features[0].id, "f1");
+  assert.deepEqual(features[0].estimates, {eng: "M", qa: "S", devops: "XS"});
+  assert.equal(features[0].size, "");
+});
+
+test("readRoadmapFeaturesFromPayload extracts top-level size field", () => {
+  const data = {
+    roadmap: {features: [{id: "f1", name: "Feature One", priority: "Critical", size: "L"}]},
+  };
+  const features = readRoadmapFeaturesFromPayload(data);
+  assert.equal(features[0].size, "L");
+  assert.deepEqual(features[0].estimates, {});
+});
+
+test("readRoadmapFeaturesFromPayload returns empty array when roadmap absent", () => {
+  assert.deepEqual(readRoadmapFeaturesFromPayload({}), []);
+});
+
+test("applyRoadmapFeaturesToPayload round-trips features with estimates", () => {
+  const data = {
+    roadmap: {
+      features: [{id: "f1", name: "Feature One", priority: "High", estimates: {eng: "M", qa: "S"}}],
+    },
+  };
+  const features = readRoadmapFeaturesFromPayload(data);
+  const result = applyRoadmapFeaturesToPayload(data, features);
+  assert.equal(result.roadmap.features[0].id, "f1");
+  assert.equal(result.roadmap.features[0].estimates.eng, "M");
+  assert.equal(result.roadmap.features[0].estimates.qa, "S");
+  assert.equal("devops" in result.roadmap.features[0].estimates, false);
+});
+
+test("applyRoadmapFeaturesToPayload preserves unknown feature fields via id matching", () => {
+  const data = {
+    roadmap: {
+      features: [{id: "f1", name: "F", priority: "High", estimates: {eng: "M"}, dependencies: ["f0"]}],
+    },
+  };
+  const features = readRoadmapFeaturesFromPayload(data);
+  const result = applyRoadmapFeaturesToPayload(data, features);
+  assert.deepEqual(result.roadmap.features[0].dependencies, ["f0"]);
+});
+
+test("applyRoadmapFeaturesToPayload preserves unknown roadmap fields", () => {
+  const data = {
+    roadmap: {
+      features: [{id: "f1", name: "A", priority: "High", estimates: {eng: "S"}}],
+      version: "2.0",
+    },
+  };
+  const features = readRoadmapFeaturesFromPayload(data);
+  const result = applyRoadmapFeaturesToPayload(data, features);
+  assert.equal(result.roadmap.version, "2.0");
+});
+
+// --- readBusinessGoalsFromPayload / applyBusinessGoalsToPayload ---
+
+test("readBusinessGoalsFromPayload returns must-deliver ids as typed array", () => {
+  const data = {
+    business_goals: {
+      must_deliver_feature_ids: ["f1", "f2"],
+      max_utilization: 0.85,
+      min_buffer_ratio: 0.1,
+    },
+  };
+  const goals = readBusinessGoalsFromPayload(data);
+  assert.deepEqual(goals.must_deliver_feature_ids, ["f1", "f2"]);
+  assert.equal(goals.max_utilization, 0.85);
+  assert.equal(goals.min_buffer_ratio, 0.1);
+});
+
+test("readBusinessGoalsFromPayload returns defaults when absent", () => {
+  const goals = readBusinessGoalsFromPayload({});
+  assert.deepEqual(goals.must_deliver_feature_ids, []);
+  assert.equal(goals.max_utilization, null);
+  assert.equal(goals.min_buffer_ratio, null);
+});
+
+test("applyBusinessGoalsToPayload round-trips business goals", () => {
+  const data = {
+    business_goals: {
+      must_deliver_feature_ids: ["f1", "f2"],
+      max_utilization: 0.85,
+      min_buffer_ratio: 0.1,
+    },
+  };
+  const goals = readBusinessGoalsFromPayload(data);
+  const result = applyBusinessGoalsToPayload(data, goals);
+  assert.deepEqual(result.business_goals.must_deliver_feature_ids, ["f1", "f2"]);
+  assert.equal(result.business_goals.max_utilization, 0.85);
+  assert.equal(result.business_goals.min_buffer_ratio, 0.1);
+});
+
+test("applyBusinessGoalsToPayload preserves unknown business_goals fields", () => {
+  const data = {
+    business_goals: {
+      must_deliver_feature_ids: ["f1"],
+      max_utilization: 0.9,
+      preserve_priorities: true,
+      defer_preference: "low",
+    },
+  };
+  const goals = readBusinessGoalsFromPayload(data);
+  const result = applyBusinessGoalsToPayload(data, goals);
+  assert.equal(result.business_goals.preserve_priorities, true);
+  assert.equal(result.business_goals.defer_preference, "low");
+});
+
+test("applyBusinessGoalsToPayload handles empty must-deliver input", () => {
+  const data = {business_goals: {must_deliver_feature_ids: ["f1"]}};
+  const result = applyBusinessGoalsToPayload(data, {
+    must_deliver_feature_ids: [],
+    max_utilization: null,
+    min_buffer_ratio: null,
+  });
+  assert.deepEqual(result.business_goals.must_deliver_feature_ids, []);
+  assert.equal("max_utilization" in result.business_goals, false);
+  assert.equal("min_buffer_ratio" in result.business_goals, false);
+});
+
+// --- Structured editor helpers ---
+
+// Teams and members
+
+test("readOrgFromPayload reads teams and members from rd_org", () => {
+  const data = {
+    planning_mode: "capacity_check",
+    rd_org: {
+      country_profiles: [{id: "us", country_code: "US"}],
+      teams: [
+        {
+          name: "Core Product",
+          members: [
+            {id: "eng-1", function: "eng", seniority: "Senior", country_profile: "us"},
+            {id: "qa-1", function: "qa", seniority: "Mid", country_profile: "us"},
+          ],
+        },
+      ],
+    },
+  };
+
+  const org = readOrgFromPayload(data);
+
+  assert.equal(org.teams.length, 1);
+  assert.equal(org.teams[0].name, "Core Product");
+  assert.equal(org.teams[0].members.length, 2);
+  assert.equal(org.teams[0].members[0].id, "eng-1");
+  assert.equal(org.teams[0].members[1].function, "qa");
+});
+
+test("readOrgFromPayload returns empty arrays when rd_org is absent", () => {
+  const org = readOrgFromPayload({planning_mode: "capacity_check"});
+
+  assert.deepEqual(org.teams, []);
+  assert.deepEqual(org.country_profiles, []);
+});
+
+test("applyOrgToPayload writes teams back and preserves org_schedule_policies", () => {
+  const original = {
+    planning_mode: "planning_schedule",
+    rd_org: {
+      org_schedule_policies: {post_dev_min_ratio: {qa: 0.4, devops: 0.4}},
+      country_profiles: [{id: "il", country_code: "IL"}],
+      teams: [{name: "Old Team", members: []}],
+    },
+  };
+
+  const orgState = {
+    teams: [{name: "New Team", members: [{id: "eng-1", function: "eng", seniority: "Senior", country_profile: "il"}]}],
+    country_profiles: [{id: "il", country_code: "IL"}],
+  };
+
+  const updated = applyOrgToPayload(original, orgState);
+
+  assert.equal(updated.rd_org.teams.length, 1);
+  assert.equal(updated.rd_org.teams[0].name, "New Team");
+  assert.deepEqual(updated.rd_org.org_schedule_policies, {post_dev_min_ratio: {qa: 0.4, devops: 0.4}});
+  assert.equal(updated.planning_mode, "planning_schedule");
+});
+
+test("applyOrgToPayload seeds empty rd_org when absent", () => {
+  const original = {planning_mode: "capacity_check"};
+
+  const orgState = {
+    teams: [{name: "Alpha", members: []}],
+    country_profiles: [],
+  };
+
+  const updated = applyOrgToPayload(original, orgState);
+
+  assert.ok(updated.rd_org);
+  assert.equal(updated.rd_org.teams[0].name, "Alpha");
+  assert.deepEqual(updated.rd_org.country_profiles, []);
+});
+
+// Country profiles
+
+test("readOrgFromPayload reads country_profiles with all fields", () => {
+  const data = {
+    rd_org: {
+      country_profiles: [
+        {
+          id: "us",
+          country_code: "US",
+          working_day_rules: {workweek: "mon-fri"},
+          holiday_calendar_rules: {dates: ["2026-07-04"]},
+          vacation_days_per_employee: 18,
+          sick_days_per_employee: 8,
+        },
+      ],
+      teams: [],
+    },
+  };
+
+  const org = readOrgFromPayload(data);
+
+  assert.equal(org.country_profiles.length, 1);
+  assert.equal(org.country_profiles[0].id, "us");
+  assert.equal(org.country_profiles[0].country_code, "US");
+  assert.equal(org.country_profiles[0].vacation_days_per_employee, 18);
+  assert.deepEqual(org.country_profiles[0].working_day_rules, {workweek: "mon-fri"});
+});
+
+test("applyOrgToPayload round-trips country_profiles without loss", () => {
+  const profiles = [
+    {
+      id: "us",
+      country_code: "US",
+      working_day_rules: {workweek: "mon-fri"},
+      holiday_calendar_rules: {dates: ["2026-07-04"]},
+      vacation_days_per_employee: 18,
+      sick_days_per_employee: 8,
+    },
+  ];
+  const original = {rd_org: {country_profiles: profiles, teams: []}};
+
+  const org = readOrgFromPayload(original);
+  const updated = applyOrgToPayload(original, org);
+
+  assert.deepEqual(updated.rd_org.country_profiles, profiles);
+});
+
+// Schedule policy
+
+test("readSchedulePolicyFromPayload reads post_dev_min_ratio for planning_schedule", () => {
+  const data = {
+    planning_mode: "planning_schedule",
+    rd_org: {
+      org_schedule_policies: {
+        post_dev_min_ratio: {qa: 0.4, devops: 0.3},
+      },
+      teams: [],
+      country_profiles: [],
+    },
+  };
+
+  const policy = readSchedulePolicyFromPayload(data);
+
+  assert.equal(policy.qa, 0.4);
+  assert.equal(policy.devops, 0.3);
+});
+
+test("readSchedulePolicyFromPayload returns nulls when policy is absent", () => {
+  const policy = readSchedulePolicyFromPayload({planning_mode: "capacity_check"});
+
+  assert.equal(policy.qa, null);
+  assert.equal(policy.devops, null);
+});
+
+test("applySchedulePolicyToPayload writes post_dev_min_ratio for planning_schedule", () => {
+  const original = {
+    planning_mode: "planning_schedule",
+    rd_org: {
+      teams: [],
+      country_profiles: [],
+    },
+  };
+
+  const updated = applySchedulePolicyToPayload(original, {qa: 0.4, devops: 0.5});
+
+  assert.equal(updated.rd_org.org_schedule_policies.post_dev_min_ratio.qa, 0.4);
+  assert.equal(updated.rd_org.org_schedule_policies.post_dev_min_ratio.devops, 0.5);
+  assert.deepEqual(updated.rd_org.teams, []);
+});
+
+test("applySchedulePolicyToPayload preserves existing org_schedule_policies fields", () => {
+  const original = {
+    planning_mode: "planning_schedule",
+    rd_org: {
+      org_schedule_policies: {
+        post_dev_min_ratio: {qa: 0.3, devops: 0.3},
+        extra_policy: "keep_me",
+      },
+      teams: [],
+      country_profiles: [],
+    },
+  };
+
+  const updated = applySchedulePolicyToPayload(original, {qa: 0.5, devops: 0.5});
+
+  assert.equal(updated.rd_org.org_schedule_policies.extra_policy, "keep_me");
+  assert.equal(updated.rd_org.org_schedule_policies.post_dev_min_ratio.qa, 0.5);
+});
+
+test("applySchedulePolicyToPayload removes org_schedule_policies for capacity_check", () => {
+  const original = {
+    planning_mode: "capacity_check",
+    rd_org: {
+      teams: [],
+      country_profiles: [],
+      org_schedule_policies: {post_dev_min_ratio: {qa: 0.4, devops: 0.4}},
+    },
+  };
+
+  const updated = applySchedulePolicyToPayload(original, {qa: 0.4, devops: 0.4});
+
+  assert.equal(updated.rd_org.org_schedule_policies, undefined);
+  assert.deepEqual(updated.rd_org.teams, []);
+  assert.deepEqual(updated.rd_org.country_profiles, []);
+});
+
+// Roadmap feature estimates
+
+test("readRoadmapFeaturesFromPayload reads features with function estimates", () => {
+  const data = {
+    roadmap: {
+      features: [
+        {id: "f-1", name: "Auth", priority: "High", estimates: {eng: "M", qa: "S"}},
+        {id: "f-2", name: "Export", priority: "Low", estimates: {eng: "L", devops: "XS"}},
+      ],
+    },
+  };
+
+  const features = readRoadmapFeaturesFromPayload(data);
+
+  assert.equal(features.length, 2);
+  assert.equal(features[0].id, "f-1");
+  assert.deepEqual(features[0].estimates, {eng: "M", qa: "S"});
+  assert.equal(features[1].estimates.devops, "XS");
+});
+
+test("readRoadmapFeaturesFromPayload returns empty array when roadmap is absent", () => {
+  const features = readRoadmapFeaturesFromPayload({});
+
+  assert.deepEqual(features, []);
+});
+
+test("applyRoadmapFeaturesToPayload writes features preserving other roadmap fields", () => {
+  const original = {
+    roadmap: {
+      features: [{id: "f-1", name: "Old", priority: "Low", estimates: {eng: "S"}}],
+      roadmap_version: "v2",
+    },
+  };
+
+  const newFeatures = [
+    {id: "f-1", name: "Old", priority: "High", estimates: {eng: "M", qa: "S"}},
+  ];
+
+  const updated = applyRoadmapFeaturesToPayload(original, newFeatures);
+
+  assert.equal(updated.roadmap.features[0].priority, "High");
+  assert.deepEqual(updated.roadmap.features[0].estimates, {eng: "M", qa: "S"});
+  assert.equal(updated.roadmap.roadmap_version, "v2");
+});
+
+test("applyRoadmapFeaturesToPayload preserves unknown feature fields during round-trip", () => {
+  const features = [
+    {id: "f-1", name: "Auth", priority: "High", estimates: {eng: "M"}, tags: ["security"], internal_note: "urgent"},
+  ];
+  const original = {roadmap: {features}};
+
+  const read = readRoadmapFeaturesFromPayload(original);
+  const updated = applyRoadmapFeaturesToPayload(original, read);
+
+  assert.deepEqual(updated.roadmap.features[0].tags, ["security"]);
+  assert.equal(updated.roadmap.features[0].internal_note, "urgent");
+});
+
+// Business goals
+
+test("readBusinessGoalsFromPayload reads must_deliver_feature_ids and utilization goals", () => {
+  const data = {
+    business_goals: {
+      must_deliver_feature_ids: ["f-1", "f-2"],
+      preserve_priorities: ["Critical"],
+      max_utilization: 0.9,
+      min_buffer_ratio: 0.1,
+    },
+  };
+
+  const goals = readBusinessGoalsFromPayload(data);
+
+  assert.deepEqual(goals.must_deliver_feature_ids, ["f-1", "f-2"]);
+  assert.equal(goals.max_utilization, 0.9);
+  assert.equal(goals.min_buffer_ratio, 0.1);
+});
+
+test("readBusinessGoalsFromPayload returns defaults when business_goals is absent", () => {
+  const goals = readBusinessGoalsFromPayload({});
+
+  assert.deepEqual(goals.must_deliver_feature_ids, []);
+  assert.equal(goals.max_utilization, null);
+  assert.equal(goals.min_buffer_ratio, null);
+});
+
+test("applyBusinessGoalsToPayload writes goals preserving other business_goal fields", () => {
+  const original = {
+    business_goals: {
+      must_deliver_feature_ids: ["f-1"],
+      preserve_priorities: ["Critical", "High"],
+      defer_preference: ["Low"],
+      max_utilization: 0.85,
+      min_buffer_ratio: 0.1,
+    },
+  };
+
+  const goalsState = {
+    must_deliver_feature_ids: ["f-1", "f-3"],
+    max_utilization: 0.9,
+    min_buffer_ratio: 0.15,
+  };
+
+  const updated = applyBusinessGoalsToPayload(original, goalsState);
+
+  assert.deepEqual(updated.business_goals.must_deliver_feature_ids, ["f-1", "f-3"]);
+  assert.equal(updated.business_goals.max_utilization, 0.9);
+  assert.equal(updated.business_goals.min_buffer_ratio, 0.15);
+  assert.deepEqual(updated.business_goals.preserve_priorities, ["Critical", "High"]);
+  assert.deepEqual(updated.business_goals.defer_preference, ["Low"]);
+});
+
+test("applyBusinessGoalsToPayload seeds business_goals when absent", () => {
+  const original = {planning_mode: "capacity_check"};
+
+  const updated = applyBusinessGoalsToPayload(original, {
+    must_deliver_feature_ids: ["f-99"],
+    max_utilization: 0.9,
+    min_buffer_ratio: 0.1,
+  });
+
+  assert.deepEqual(updated.business_goals.must_deliver_feature_ids, ["f-99"]);
+  assert.equal(updated.business_goals.max_utilization, 0.9);
 });

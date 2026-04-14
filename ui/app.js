@@ -256,6 +256,219 @@ export function buildFunctionAnalysisModel(result) {
   };
 }
 
+// --- Structured editor helpers ---
+
+// Organization: read normalises member/profile values to strings for form inputs.
+export function readOrgFromPayload(data) {
+  const rdOrg = data.rd_org ?? {};
+  const teams = (rdOrg.teams ?? []).map(t => ({
+    name: t.name ?? "",
+    members: (t.members ?? []).map(m => ({
+      id: m.id ?? "",
+      function: m.function ?? "",
+      seniority: m.seniority ?? "",
+      capacity_percent: m.capacity_percent !== undefined ? String(m.capacity_percent) : "",
+      country_profile: m.country_profile ?? "",
+    })),
+  }));
+  const country_profiles = (rdOrg.country_profiles ?? []).map(p => ({
+    ...p,
+    id: p.id ?? "",
+    country_code: p.country_code ?? "",
+    vacation_days_per_employee: p.vacation_days_per_employee !== undefined ? p.vacation_days_per_employee : null,
+    sick_days_per_employee: p.sick_days_per_employee !== undefined ? p.sick_days_per_employee : null,
+  }));
+  return { teams, country_profiles };
+}
+
+// Organization: apply merges form state back into payload, preserving unknown fields
+// on teams, members, and country profiles via id-based matching.
+export function applyOrgToPayload(data, { teams, country_profiles }) {
+  const next = { ...data };
+  const existingRdOrg = data.rd_org ?? {};
+
+  const existingProfilesById = Object.fromEntries(
+    (existingRdOrg.country_profiles ?? []).map(p => [p.id, p])
+  );
+
+  const nextTeams = teams.map((t, ti) => {
+    const existingTeam = (existingRdOrg.teams ?? [])[ti] ?? {};
+    const existingMembersById = Object.fromEntries(
+      (existingTeam.members ?? []).map(m => [m.id, m])
+    );
+    const nextMembers = t.members.map(m => {
+      const existing = existingMembersById[m.id] ?? {};
+      const nextMember = { ...existing };
+      if (m.id) nextMember.id = m.id;
+      if (m.function) nextMember.function = m.function;
+      if (m.seniority) nextMember.seniority = m.seniority;
+      if (m.country_profile) nextMember.country_profile = m.country_profile;
+      const cap = Number.parseFloat(m.capacity_percent);
+      if (!Number.isNaN(cap)) {
+        nextMember.capacity_percent = cap;
+      } else {
+        delete nextMember.capacity_percent;
+      }
+      return nextMember;
+    });
+    return { ...existingTeam, name: t.name, members: nextMembers };
+  });
+
+  const nextProfiles = country_profiles.map(p => {
+    const existing = existingProfilesById[p.id] ?? {};
+    const nextProfile = { ...existing };
+    if (p.id) nextProfile.id = p.id;
+    if (p.country_code) nextProfile.country_code = p.country_code;
+    const vac = Number.parseFloat(p.vacation_days_per_employee);
+    if (!Number.isNaN(vac)) nextProfile.vacation_days_per_employee = vac;
+    const sick = Number.parseFloat(p.sick_days_per_employee);
+    if (!Number.isNaN(sick)) nextProfile.sick_days_per_employee = sick;
+    return nextProfile;
+  });
+
+  next.rd_org = { ...existingRdOrg, teams: nextTeams, country_profiles: nextProfiles };
+  return next;
+}
+
+// Schedule policies: read returns typed values (number or null when absent).
+export function readSchedulePolicyFromPayload(data) {
+  const ratio = data.rd_org?.org_schedule_policies?.post_dev_min_ratio ?? {};
+  return {
+    qa: ratio.qa !== undefined ? ratio.qa : null,
+    devops: ratio.devops !== undefined ? ratio.devops : null,
+  };
+}
+
+// Schedule policies: apply updates post_dev_min_ratio, preserving unknown rd_org and
+// org_schedule_policies fields. When capacity_check is active, the schedule-policy
+// block is removed entirely because it is not valid for that mode.
+// Removes a key when the typed value is null/undefined.
+export function applySchedulePolicyToPayload(data, policyState) {
+  const next = { ...data };
+  const existingRdOrg = data.rd_org ?? {};
+  if (data.planning_mode === "capacity_check") {
+    if (!existingRdOrg.org_schedule_policies) {
+      return data;
+    }
+    const { org_schedule_policies, ...restRdOrg } = existingRdOrg;
+    next.rd_org = restRdOrg;
+    return next;
+  }
+  const existingPolicies = existingRdOrg.org_schedule_policies ?? {};
+  const existingRatio = existingPolicies.post_dev_min_ratio ?? {};
+
+  const nextRatio = { ...existingRatio };
+  if (policyState.qa !== null && policyState.qa !== undefined) {
+    nextRatio.qa = policyState.qa;
+  } else {
+    delete nextRatio.qa;
+  }
+  if (policyState.devops !== null && policyState.devops !== undefined) {
+    nextRatio.devops = policyState.devops;
+  } else {
+    delete nextRatio.devops;
+  }
+
+  next.rd_org = {
+    ...existingRdOrg,
+    org_schedule_policies: {
+      ...existingPolicies,
+      post_dev_min_ratio: nextRatio,
+    },
+  };
+  return next;
+}
+
+// Roadmap: read normalises features to form state, preserving nested estimates structure.
+export function readRoadmapFeaturesFromPayload(data) {
+  return (data.roadmap?.features ?? []).map(f => ({
+    id: f.id ?? "",
+    name: f.name ?? "",
+    priority: f.priority ?? "",
+    size: f.size ?? "",
+    estimates: f.estimates ? { ...f.estimates } : {},
+  }));
+}
+
+// Roadmap: apply converts form feature objects back to proper schema objects,
+// rebuilding estimates from flat fields and preserving unknown feature fields via id.
+export function applyRoadmapFeaturesToPayload(data, features) {
+  const next = { ...data };
+  const existingRoadmap = data.roadmap ?? {};
+  const existingFeaturesById = Object.fromEntries(
+    (existingRoadmap.features ?? []).map(f => [f.id, f])
+  );
+
+  const nextFeatures = features.map(f => {
+    const existing = existingFeaturesById[f.id] ?? {};
+    const nextF = { ...existing };
+    if (f.id) nextF.id = f.id;
+    if (f.name) nextF.name = f.name;
+    if (f.priority) nextF.priority = f.priority;
+    if (f.size) {
+      nextF.size = f.size;
+    } else {
+      delete nextF.size;
+    }
+
+    const existingEstimates = existing.estimates ?? {};
+    const formEstimates = f.estimates ?? {};
+    const nextEstimates = { ...existingEstimates, ...formEstimates };
+    // Remove keys explicitly set to empty string in form state
+    for (const key of Object.keys(nextEstimates)) {
+      if (formEstimates[key] === "") delete nextEstimates[key];
+    }
+
+    if (Object.keys(nextEstimates).length > 0) {
+      nextF.estimates = nextEstimates;
+    } else {
+      delete nextF.estimates;
+    }
+
+    return nextF;
+  });
+
+  next.roadmap = { ...existingRoadmap, features: nextFeatures };
+  return next;
+}
+
+// Business goals: read returns typed values (array for ids, numbers or null).
+export function readBusinessGoalsFromPayload(data) {
+  const goals = data.business_goals ?? {};
+  return {
+    must_deliver_feature_ids: Array.isArray(goals.must_deliver_feature_ids) ? goals.must_deliver_feature_ids : [],
+    max_utilization: goals.max_utilization !== undefined ? goals.max_utilization : null,
+    min_buffer_ratio: goals.min_buffer_ratio !== undefined ? goals.min_buffer_ratio : null,
+  };
+}
+
+// Business goals: apply accepts typed values (array for ids, numbers or null),
+// preserving unknown business_goals fields.
+export function applyBusinessGoalsToPayload(data, goalsState) {
+  const next = { ...data };
+  const existingGoals = data.business_goals ?? {};
+  const nextGoals = { ...existingGoals };
+
+  nextGoals.must_deliver_feature_ids = Array.isArray(goalsState.must_deliver_feature_ids)
+    ? goalsState.must_deliver_feature_ids
+    : [];
+
+  if (goalsState.max_utilization !== null && goalsState.max_utilization !== undefined) {
+    nextGoals.max_utilization = goalsState.max_utilization;
+  } else {
+    delete nextGoals.max_utilization;
+  }
+
+  if (goalsState.min_buffer_ratio !== null && goalsState.min_buffer_ratio !== undefined) {
+    nextGoals.min_buffer_ratio = goalsState.min_buffer_ratio;
+  } else {
+    delete nextGoals.min_buffer_ratio;
+  }
+
+  next.business_goals = nextGoals;
+  return next;
+}
+
 export function buildPeriodSource(data, rawFieldValues) {
   const calendarYear = parseFormInteger(rawFieldValues.calendar_year) ?? data.calendar_year;
   const halfYearIndex = parseFormInteger(rawFieldValues.half_year_index) ?? data.half_year_index;
