@@ -790,6 +790,87 @@ details[open] summary::before { content: "\25BC\00a0"; }
 @media (max-width: 600px) {
   .function-row { grid-template-columns: 1fr 1fr; }
 }
+/* Row-based structured editors */
+.org-team-block {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--bg);
+}
+.org-team-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.org-team-name-row input {
+  flex: 1;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+}
+.row-editor-header {
+  display: grid;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+  margin-bottom: 3px;
+  padding: 0 2px;
+}
+.member-row { display: grid; grid-template-columns: 1fr 1fr 1fr 60px 76px 26px; gap: 5px; align-items: center; margin-bottom: 4px; }
+.profile-row { display: grid; grid-template-columns: 68px 78px 68px 68px 26px; gap: 5px; align-items: center; margin-bottom: 4px; }
+.feature-row { display: grid; grid-template-columns: 72px 1fr 88px 48px 48px 48px 48px 26px; gap: 5px; align-items: center; margin-bottom: 4px; }
+.row-editor-header.member-row { grid-template-columns: 1fr 1fr 1fr 60px 76px 26px; }
+.row-editor-header.profile-row { grid-template-columns: 68px 78px 68px 68px 26px; }
+.row-editor-header.feature-row { grid-template-columns: 72px 1fr 88px 48px 48px 48px 48px 26px; }
+.member-row input, .member-row select,
+.profile-row input, .profile-row select,
+.feature-row input, .feature-row select {
+  font-family: var(--sans);
+  font-size: 12px;
+  padding: 4px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.member-row input:focus, .member-row select:focus,
+.profile-row input:focus, .profile-row select:focus,
+.feature-row input:focus, .feature-row select:focus {
+  outline: 1px solid var(--accent);
+  border-color: transparent;
+}
+.row-remove-btn {
+  font-size: 14px;
+  font-weight: 700;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  font-family: var(--sans);
+}
+.row-remove-btn:hover { background: var(--red-bg); color: var(--red); border-color: #fecaca; }
+.row-add-btn-row { margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -936,9 +1017,59 @@ details[open] summary::before { content: "\25BC\00a0"; }
                 </div>
               </div>
 
-              <p class="form-hint">
-                Team structure, roadmap features, and business goals are edited in the JSON tab.
-                Changes here sync to JSON automatically.
+              <!-- Schedule Policies (visible only for planning_schedule) -->
+              <div id="schedule-policies-section" style="display:none">
+                <div class="section-label" style="margin-top:14px">Schedule Policies</div>
+                <div class="field-grid">
+                  <div class="field-group">
+                    <label>QA Min Ratio</label>
+                    <input type="number" id="f-sp-qa" min="0" max="1" step="0.05" placeholder="0.4">
+                  </div>
+                  <div class="field-group">
+                    <label>DevOps Min Ratio</label>
+                    <input type="number" id="f-sp-devops" min="0" max="1" step="0.05" placeholder="0.4">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Organization -->
+              <div class="section-label" style="margin-top:14px">Organization — Teams</div>
+              <div id="org-teams-container"></div>
+              <div class="row-add-btn-row">
+                <button class="btn btn-sm" id="org-add-team-btn" type="button">+ Add Team</button>
+              </div>
+              <div class="section-label" style="margin-top:12px">Country Profiles</div>
+              <div id="org-profiles-container"></div>
+              <div class="row-add-btn-row">
+                <button class="btn btn-sm" id="org-add-profile-btn" type="button">+ Add Profile</button>
+              </div>
+
+              <!-- Roadmap -->
+              <div class="section-label" style="margin-top:14px">Roadmap Features</div>
+              <div id="roadmap-features-container"></div>
+              <div class="row-add-btn-row">
+                <button class="btn btn-sm" id="roadmap-add-feature-btn" type="button">+ Add Feature</button>
+              </div>
+
+              <!-- Business Goals -->
+              <div class="section-label" style="margin-top:14px">Business Goals</div>
+              <div class="field-grid">
+                <div class="field-group" style="grid-column:1/-1">
+                  <label>Must-Deliver IDs (comma-separated)</label>
+                  <input type="text" id="f-bg-must-deliver" placeholder="feature-1, feature-2">
+                </div>
+                <div class="field-group">
+                  <label>Max Utilization</label>
+                  <input type="number" id="f-bg-max-util" min="0" max="1" step="0.05" placeholder="0.9">
+                </div>
+                <div class="field-group">
+                  <label>Min Buffer Ratio</label>
+                  <input type="number" id="f-bg-min-buffer" min="0" max="1" step="0.05" placeholder="0.1">
+                </div>
+              </div>
+
+              <p class="form-hint" style="margin-top:14px">
+                Changes to any field sync to JSON automatically. Use the JSON tab for full fidelity; unknown fields are preserved.
               </p>
             </div>
           </div>
@@ -1044,14 +1175,22 @@ details[open] summary::before { content: "\25BC\00a0"; }
 
 <script type="module">
 import {
+  applyBusinessGoalsToPayload,
   applyEditableFieldsToPayload,
+  applyOrgToPayload,
+  applyRoadmapFeaturesToPayload,
+  applySchedulePolicyToPayload,
   buildFunctionAnalysisModel,
   buildModeAwareSummaryContext,
   buildPlanComparison,
   buildStructuredFormState,
   buildSummaryModel,
   getUtilizationStatus,
+  readBusinessGoalsFromPayload,
   readEditableFieldsFromPayload,
+  readOrgFromPayload,
+  readRoadmapFeaturesFromPayload,
+  readSchedulePolicyFromPayload,
   validateInputPayload,
 } from "/assets/app.js";
 
@@ -1094,6 +1233,11 @@ import {
 
   let lastResult = null;
   let lastInputData = null;
+
+  // In-memory state for dynamic row editors. Populated by syncFormFromJson,
+  // written back to JSON by syncJsonFromOrg / syncJsonFromRoadmap.
+  let orgState = { teams: [], country_profiles: [] };
+  let roadmapState = [];
 
   // --- Load examples ---
   fetch("/api/examples").then(r => r.json()).then(examples => {
@@ -1191,10 +1335,286 @@ import {
     document.getElementById("ps-end-date").style.display = h === "sprint" ? "" : "none";
   }
 
-  // --- Form <-> JSON sync ---
+  function updateSchedulePoliciesVisibility() {
+    const isSchedule = formFields.mode.value === "planning_schedule";
+    document.getElementById("schedule-policies-section").style.display = isSchedule ? "" : "none";
+  }
+
+  // --- Org row rendering ---
+
+  const SIZE_OPTIONS = ["", "XS", "S", "M", "L", "XL"];
+  const PRIORITY_OPTIONS = ["", "Critical", "High", "Medium", "Low"];
+  const FN_OPTIONS = ["", "eng", "qa", "devops", "design", "pm", "data"];
+  const SENIORITY_OPTIONS = ["", "Junior", "Mid", "Senior", "Staff", "Principal"];
+
+  function makeSelect(options, currentValue) {
+    const sel = document.createElement("select");
+    options.forEach(opt => {
+      const o = document.createElement("option");
+      o.value = opt;
+      o.textContent = opt || "—";
+      if (opt === currentValue) o.selected = true;
+      sel.appendChild(o);
+    });
+    return sel;
+  }
+
+  function makeInput(type, value, placeholder, attrs) {
+    const inp = document.createElement("input");
+    inp.type = type;
+    inp.value = value;
+    if (placeholder) inp.placeholder = placeholder;
+    if (attrs) Object.assign(inp, attrs);
+    return inp;
+  }
+
+  function makeRemoveBtn() {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "row-remove-btn";
+    btn.textContent = "\u00d7";
+    return btn;
+  }
+
+  function renderOrgTeams() {
+    const container = document.getElementById("org-teams-container");
+    container.innerHTML = "";
+    orgState.teams.forEach((team, ti) => {
+      const block = document.createElement("div");
+      block.className = "org-team-block";
+
+      // Team name row
+      const nameRow = document.createElement("div");
+      nameRow.className = "org-team-name-row";
+      const nameInp = makeInput("text", team.name, "Team name");
+      nameInp.addEventListener("input", function() {
+        orgState.teams[ti].name = this.value;
+        syncJsonFromOrg();
+      });
+      const removeTeamBtn = makeRemoveBtn();
+      removeTeamBtn.addEventListener("click", function() {
+        orgState.teams.splice(ti, 1);
+        renderOrgTeams();
+        syncJsonFromOrg();
+      });
+      nameRow.append(nameInp, removeTeamBtn);
+      block.appendChild(nameRow);
+
+      // Member header
+      if (team.members.length > 0) {
+        const hdr = document.createElement("div");
+        hdr.className = "row-editor-header member-row";
+        ["ID", "Function", "Seniority", "Cap%", "Country", ""].forEach(h => {
+          const s = document.createElement("span");
+          s.textContent = h;
+          hdr.appendChild(s);
+        });
+        block.appendChild(hdr);
+      }
+
+      // Member rows
+      team.members.forEach((member, mi) => {
+        const row = document.createElement("div");
+        row.className = "member-row";
+
+        const idInp = makeInput("text", member.id, "id");
+        idInp.addEventListener("input", function() {
+          orgState.teams[ti].members[mi].id = this.value;
+          syncJsonFromOrg();
+        });
+
+        const fnSel = makeSelect(FN_OPTIONS, member.function);
+        fnSel.addEventListener("change", function() {
+          orgState.teams[ti].members[mi].function = this.value;
+          syncJsonFromOrg();
+        });
+
+        const senSel = makeSelect(SENIORITY_OPTIONS, member.seniority);
+        senSel.addEventListener("change", function() {
+          orgState.teams[ti].members[mi].seniority = this.value;
+          syncJsonFromOrg();
+        });
+
+        const capInp = makeInput("number", member.capacity_percent, "1.0", {min: "0", max: "1", step: "0.1"});
+        capInp.addEventListener("input", function() {
+          orgState.teams[ti].members[mi].capacity_percent = this.value;
+          syncJsonFromOrg();
+        });
+
+        const countryInp = makeInput("text", member.country_profile, "profile id");
+        countryInp.addEventListener("input", function() {
+          orgState.teams[ti].members[mi].country_profile = this.value;
+          syncJsonFromOrg();
+        });
+
+        const removeBtn = makeRemoveBtn();
+        removeBtn.addEventListener("click", function() {
+          orgState.teams[ti].members.splice(mi, 1);
+          renderOrgTeams();
+          syncJsonFromOrg();
+        });
+
+        row.append(idInp, fnSel, senSel, capInp, countryInp, removeBtn);
+        block.appendChild(row);
+      });
+
+      // Add member button
+      const addMemberBtn = document.createElement("button");
+      addMemberBtn.type = "button";
+      addMemberBtn.className = "btn btn-sm";
+      addMemberBtn.textContent = "+ Add Member";
+      addMemberBtn.style.marginTop = "6px";
+      addMemberBtn.addEventListener("click", function() {
+        orgState.teams[ti].members.push({id: "", function: "", seniority: "", capacity_percent: "", country_profile: ""});
+        renderOrgTeams();
+        syncJsonFromOrg();
+      });
+      block.appendChild(addMemberBtn);
+
+      container.appendChild(block);
+    });
+  }
+
+  function renderOrgProfiles() {
+    const container = document.getElementById("org-profiles-container");
+    container.innerHTML = "";
+
+    if (orgState.country_profiles.length > 0) {
+      const hdr = document.createElement("div");
+      hdr.className = "row-editor-header profile-row";
+      ["ID", "Country Code", "Vacation", "Sick Days", ""].forEach(h => {
+        const s = document.createElement("span");
+        s.textContent = h;
+        hdr.appendChild(s);
+      });
+      container.appendChild(hdr);
+    }
+
+    orgState.country_profiles.forEach((profile, pi) => {
+      const row = document.createElement("div");
+      row.className = "profile-row";
+
+      const idInp = makeInput("text", profile.id, "id");
+      idInp.addEventListener("input", function() {
+        orgState.country_profiles[pi].id = this.value;
+        syncJsonFromOrg();
+      });
+
+      const codeInp = makeInput("text", profile.country_code, "US");
+      codeInp.addEventListener("input", function() {
+        orgState.country_profiles[pi].country_code = this.value;
+        syncJsonFromOrg();
+      });
+
+      const vacInp = makeInput("number", profile.vacation_days_per_employee ?? "", "18", {min: "0"});
+      vacInp.addEventListener("input", function() {
+        orgState.country_profiles[pi].vacation_days_per_employee = this.value;
+        syncJsonFromOrg();
+      });
+
+      const sickInp = makeInput("number", profile.sick_days_per_employee ?? "", "8", {min: "0"});
+      sickInp.addEventListener("input", function() {
+        orgState.country_profiles[pi].sick_days_per_employee = this.value;
+        syncJsonFromOrg();
+      });
+
+      const removeBtn = makeRemoveBtn();
+      removeBtn.addEventListener("click", function() {
+        orgState.country_profiles.splice(pi, 1);
+        renderOrgProfiles();
+        syncJsonFromOrg();
+      });
+
+      row.append(idInp, codeInp, vacInp, sickInp, removeBtn);
+      container.appendChild(row);
+    });
+  }
+
+  // --- Roadmap row rendering ---
+
+  function renderRoadmapFeatures() {
+    const container = document.getElementById("roadmap-features-container");
+    container.innerHTML = "";
+
+    if (roadmapState.length > 0) {
+      const hdr = document.createElement("div");
+      hdr.className = "row-editor-header feature-row";
+      ["ID", "Name", "Priority", "Size", "Eng", "QA", "DevOps", ""].forEach(h => {
+        const s = document.createElement("span");
+        s.textContent = h;
+        hdr.appendChild(s);
+      });
+      container.appendChild(hdr);
+    }
+
+    roadmapState.forEach((feature, fi) => {
+      const row = document.createElement("div");
+      row.className = "feature-row";
+
+      const idInp = makeInput("text", feature.id, "id");
+      idInp.addEventListener("input", function() {
+        roadmapState[fi].id = this.value;
+        syncJsonFromRoadmap();
+      });
+
+      const nameInp = makeInput("text", feature.name, "Feature name");
+      nameInp.addEventListener("input", function() {
+        roadmapState[fi].name = this.value;
+        syncJsonFromRoadmap();
+      });
+
+      const priSel = makeSelect(PRIORITY_OPTIONS, feature.priority);
+      priSel.addEventListener("change", function() {
+        roadmapState[fi].priority = this.value;
+        syncJsonFromRoadmap();
+      });
+
+      const sizeSel = makeSelect(SIZE_OPTIONS, feature.size);
+      sizeSel.addEventListener("change", function() {
+        roadmapState[fi].size = this.value;
+        syncJsonFromRoadmap();
+      });
+
+      const engSel = makeSelect(SIZE_OPTIONS, feature.estimates?.eng ?? "");
+      engSel.addEventListener("change", function() {
+        roadmapState[fi].estimates = roadmapState[fi].estimates ?? {};
+        roadmapState[fi].estimates.eng = this.value;
+        syncJsonFromRoadmap();
+      });
+
+      const qaSel = makeSelect(SIZE_OPTIONS, feature.estimates?.qa ?? "");
+      qaSel.addEventListener("change", function() {
+        roadmapState[fi].estimates = roadmapState[fi].estimates ?? {};
+        roadmapState[fi].estimates.qa = this.value;
+        syncJsonFromRoadmap();
+      });
+
+      const devopsSel = makeSelect(SIZE_OPTIONS, feature.estimates?.devops ?? "");
+      devopsSel.addEventListener("change", function() {
+        roadmapState[fi].estimates = roadmapState[fi].estimates ?? {};
+        roadmapState[fi].estimates.devops = this.value;
+        syncJsonFromRoadmap();
+      });
+
+      const removeBtn = makeRemoveBtn();
+      removeBtn.addEventListener("click", function() {
+        roadmapState.splice(fi, 1);
+        renderRoadmapFeatures();
+        syncJsonFromRoadmap();
+      });
+
+      row.append(idInp, nameInp, priSel, sizeSel, engSel, qaSel, devopsSel, removeBtn);
+      container.appendChild(row);
+    });
+  }
+
+  // --- Sync: JSON -> form sections ---
   function syncFormFromJson() {
     try {
-      const editableFields = readEditableFieldsFromPayload(JSON.parse(jsonInput.value));
+      const data = JSON.parse(jsonInput.value);
+
+      // Mode / period / capacity controls
+      const editableFields = readEditableFieldsFromPayload(data);
       const formState = buildStructuredFormState(editableFields);
       formFields.mode.value = formState.planning_mode;
       formFields.horizon.value = formState.planning_horizon;
@@ -1212,13 +1632,35 @@ import {
       formFields.sprintDays.value = formState.sprint_days;
       formFields.overhead.value = formState.overhead_days_per_sprint;
       updatePeriodSelectorVisibility();
+      updateSchedulePoliciesVisibility();
+
+      // Schedule policies
+      const policy = readSchedulePolicyFromPayload(data);
+      document.getElementById("f-sp-qa").value = policy.qa !== null ? policy.qa : "";
+      document.getElementById("f-sp-devops").value = policy.devops !== null ? policy.devops : "";
+
+      // Organization
+      orgState = readOrgFromPayload(data);
+      renderOrgTeams();
+      renderOrgProfiles();
+
+      // Roadmap
+      roadmapState = readRoadmapFeaturesFromPayload(data);
+      renderRoadmapFeatures();
+
+      // Business goals
+      const goals = readBusinessGoalsFromPayload(data);
+      document.getElementById("f-bg-must-deliver").value = goals.must_deliver_feature_ids.join(", ");
+      document.getElementById("f-bg-max-util").value = goals.max_utilization !== null ? goals.max_utilization : "";
+      document.getElementById("f-bg-min-buffer").value = goals.min_buffer_ratio !== null ? goals.min_buffer_ratio : "";
     } catch(e) { /* ignore parse errors during typing */ }
   }
 
+  // --- Sync: form sections -> JSON ---
   function syncJsonFromForm() {
     try {
       const data = JSON.parse(jsonInput.value);
-      const nextData = applyEditableFieldsToPayload(data, {
+      let nextData = applyEditableFieldsToPayload(data, {
         planning_mode: formFields.mode.value,
         planning_horizon: formFields.horizon.value,
         calendar_year: formFields.calendarYear.value,
@@ -1235,17 +1677,132 @@ import {
         sprint_days: formFields.sprintDays.value,
         overhead_days_per_sprint: formFields.overhead.value,
       });
+      nextData = applySchedulePolicyToPayload(nextData, {
+        qa: document.getElementById("f-sp-qa").value !== "" ? Number(document.getElementById("f-sp-qa").value) : null,
+        devops: document.getElementById("f-sp-devops").value !== "" ? Number(document.getElementById("f-sp-devops").value) : null,
+      });
       jsonInput.value = JSON.stringify(nextData, null, 2);
       refreshValidationState();
+      updateSchedulePoliciesVisibility();
     } catch(e) { /* ignore if JSON is invalid */ }
   }
+
+  function normalizeOrgState(state) {
+    return {
+      country_profiles: state.country_profiles.map(p => {
+        const profile = {...p};
+        const vac = Number(profile.vacation_days_per_employee);
+        if (!isNaN(vac) && profile.vacation_days_per_employee !== "") profile.vacation_days_per_employee = vac;
+        const sick = Number(profile.sick_days_per_employee);
+        if (!isNaN(sick) && profile.sick_days_per_employee !== "") profile.sick_days_per_employee = sick;
+        return profile;
+      }),
+      teams: state.teams.map(team => ({
+        ...team,
+        members: (team.members ?? []).map(member => {
+          const m = {...member};
+          if (m.capacity_percent !== "" && m.capacity_percent !== undefined) {
+            const cap = Number(m.capacity_percent);
+            if (!isNaN(cap)) m.capacity_percent = cap;
+          } else {
+            delete m.capacity_percent;
+          }
+          return m;
+        }),
+      })),
+    };
+  }
+
+  function syncJsonFromOrg() {
+    try {
+      const data = JSON.parse(jsonInput.value);
+      jsonInput.value = JSON.stringify(applyOrgToPayload(data, normalizeOrgState(orgState)), null, 2);
+      refreshValidationState();
+    } catch(e) {}
+  }
+
+  function syncJsonFromRoadmap() {
+    try {
+      const data = JSON.parse(jsonInput.value);
+      jsonInput.value = JSON.stringify(applyRoadmapFeaturesToPayload(data, roadmapState), null, 2);
+      refreshValidationState();
+    } catch(e) {}
+  }
+
+  function syncJsonFromSchedulePolicy() {
+    try {
+      const data = JSON.parse(jsonInput.value);
+      const qaStr = document.getElementById("f-sp-qa").value;
+      const devopsStr = document.getElementById("f-sp-devops").value;
+      jsonInput.value = JSON.stringify(applySchedulePolicyToPayload(data, {
+        qa: qaStr !== "" ? Number(qaStr) : null,
+        devops: devopsStr !== "" ? Number(devopsStr) : null,
+      }), null, 2);
+      refreshValidationState();
+    } catch(e) {}
+  }
+
+  function syncJsonFromBusinessGoals() {
+    try {
+      const data = JSON.parse(jsonInput.value);
+      const mustStr = document.getElementById("f-bg-must-deliver").value;
+      const maxUtilStr = document.getElementById("f-bg-max-util").value;
+      const minBufStr = document.getElementById("f-bg-min-buffer").value;
+      const must_deliver_feature_ids = mustStr ? mustStr.split(",").map(s => s.trim()).filter(Boolean) : [];
+      const max_utilization = maxUtilStr !== "" ? Number(maxUtilStr) : null;
+      const min_buffer_ratio = minBufStr !== "" ? Number(minBufStr) : null;
+      let updated = applyBusinessGoalsToPayload(data, {must_deliver_feature_ids, max_utilization, min_buffer_ratio});
+      // Remove null entries from the JSON to avoid polluting clean payloads
+      if (updated.business_goals.max_utilization === null) delete updated.business_goals.max_utilization;
+      if (updated.business_goals.min_buffer_ratio === null) delete updated.business_goals.min_buffer_ratio;
+      jsonInput.value = JSON.stringify(updated, null, 2);
+      refreshValidationState();
+    } catch(e) {}
+  }
+
+  // Wire schedule policy inputs
+  ["f-sp-qa", "f-sp-devops"].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener("input", syncJsonFromSchedulePolicy);
+    el.addEventListener("change", syncJsonFromSchedulePolicy);
+  });
+
+  // Wire business goals inputs
+  ["f-bg-must-deliver", "f-bg-max-util", "f-bg-min-buffer"].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener("input", syncJsonFromBusinessGoals);
+    el.addEventListener("change", syncJsonFromBusinessGoals);
+  });
+
+  // Wire add-row buttons
+  document.getElementById("org-add-team-btn").addEventListener("click", function() {
+    orgState.teams.push({name: "", members: []});
+    renderOrgTeams();
+    syncJsonFromOrg();
+  });
+
+  document.getElementById("org-add-profile-btn").addEventListener("click", function() {
+    orgState.country_profiles.push({id: "", country_code: "", vacation_days_per_employee: "", sick_days_per_employee: ""});
+    renderOrgProfiles();
+    syncJsonFromOrg();
+  });
+
+  document.getElementById("roadmap-add-feature-btn").addEventListener("click", function() {
+    roadmapState.push({id: "", name: "", priority: "", estimates: {}});
+    renderRoadmapFeatures();
+    syncJsonFromRoadmap();
+  });
 
   formFields.horizon.addEventListener("change", function() {
     updatePeriodSelectorVisibility();
     syncJsonFromForm();
   });
+  formFields.mode.addEventListener("change", function() {
+    updateSchedulePoliciesVisibility();
+    syncJsonFromForm();
+  });
   Object.values(formFields).forEach(field => {
-    if (field !== formFields.horizon) {
+    if (field !== formFields.horizon && field !== formFields.mode) {
       field.addEventListener("change", syncJsonFromForm);
       field.addEventListener("input", syncJsonFromForm);
     }
@@ -1257,6 +1814,7 @@ import {
 
   // Initialize
   updatePeriodSelectorVisibility();
+  updateSchedulePoliciesVisibility();
   refreshValidationState();
 
   // --- Run planner ---
