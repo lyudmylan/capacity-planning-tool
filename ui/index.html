@@ -398,6 +398,19 @@ select.example-select {
 .metric-value.feasible { color: var(--green); }
 .metric-value.infeasible { color: var(--red); }
 .metric-value.warning { color: var(--amber); }
+/* Mode question */
+.mode-question {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-radius: 5px;
+  border-left: 3px solid var(--border);
+  line-height: 1.5;
+}
+.mode-question.capacity-check { border-left-color: var(--accent); }
+.mode-question.planning-schedule { border-left-color: var(--green); }
 /* Dependency status */
 .dep-status {
   display: flex;
@@ -959,6 +972,7 @@ details[open] summary::before { content: "\25BC\00a0"; }
           </div>
           <div class="panel-body">
             <div id="feasibility-banner" class="feasibility-banner"></div>
+            <div id="mode-question" class="mode-question" style="display:none"></div>
             <div class="summary-grid" id="summary-grid"></div>
             <div id="dep-status-section" style="margin-top:14px;display:none"></div>
             <div id="fn-fit-section" style="margin-top:14px;display:none"></div>
@@ -1032,6 +1046,7 @@ details[open] summary::before { content: "\25BC\00a0"; }
 import {
   applyEditableFieldsToPayload,
   buildFunctionAnalysisModel,
+  buildModeAwareSummaryContext,
   buildPlanComparison,
   buildStructuredFormState,
   buildSummaryModel,
@@ -1347,6 +1362,13 @@ import {
     banner.className = summary.bannerClass;
     banner.textContent = summary.bannerText;
 
+    // Mode-specific primary question
+    const modeCtx = buildModeAwareSummaryContext(data);
+    const modeQuestionEl = document.getElementById("mode-question");
+    modeQuestionEl.style.display = "";
+    modeQuestionEl.className = "mode-question " + (summary.planningMode === "planning_schedule" ? "planning-schedule" : "capacity-check");
+    modeQuestionEl.textContent = modeCtx.primaryQuestion;
+
     // Metrics grid
     const utilClass = getUtilizationStatus(summary.utilization);
     const grid = document.getElementById("summary-grid");
@@ -1369,9 +1391,9 @@ import {
       grid.appendChild(card);
     });
 
-    // Dependency rule status (planning_schedule)
+    // Dependency rule status (present only for planning_schedule results)
     const depSection = document.getElementById("dep-status-section");
-    if (summary.dependencyRulesPass !== null) {
+    if (summary.dependencyRulesPass !== null && summary.dependencyRulesPass !== undefined) {
       depSection.style.display = "";
       depSection.innerHTML = "";
       const depDiv = document.createElement("div");
@@ -1386,7 +1408,7 @@ import {
 
     // Function capacity fit chips
     const fnFitSection = document.getElementById("fn-fit-section");
-    const fitKeys = Object.keys(summary.functionCapacityFit);
+    const fitKeys = Object.keys(summary.functionCapacityFit ?? {});
     if (fitKeys.length > 0) {
       fnFitSection.style.display = "";
       fnFitSection.innerHTML = '<div class="fn-fit-label">Function Capacity Fit</div>';
@@ -1411,7 +1433,7 @@ import {
     body.innerHTML = "";
     const model = buildFunctionAnalysisModel(data);
 
-    if (!model || model.length === 0) {
+    if (!model || model.rows.length === 0) {
       body.innerHTML = '<div class="scope-empty">No per-function metrics available — use v2 rd_org input format for function-level analysis.</div>';
       return;
     }
@@ -1432,7 +1454,7 @@ import {
     table.appendChild(thead);
 
     const tbody = document.createElement("tbody");
-    model.forEach(fn => {
+    model.rows.forEach(fn => {
       const tr = document.createElement("tr");
       if (fn.isBottleneck) tr.className = "fn-bottleneck-row";
 
@@ -1488,10 +1510,17 @@ import {
     const droppedFeatures = selectedPlan.dropped_features ?? data.dropped_features ?? [];
 
     if (isSchedule) {
-      // Planning schedule: selected plan is primary — no baseline comparison
+      // Planning schedule: selected plan is primary — schedule-consequence framing, no baseline comparison
+      const depRulesPass = data.dependency_rules_pass ?? data.selected_plan?.dependency_rules_pass;
       const callout = document.createElement("div");
       callout.className = "schedule-primary-callout";
-      callout.textContent = "Showing selected plan scope — no baseline comparison in planning schedule mode.";
+      let calloutText = "Selected plan — dependency-aware schedule. Scope reflects what fits within the horizon once cross-function sequencing rules are applied.";
+      if (depRulesPass === true) {
+        calloutText += " All dependency rules pass.";
+      } else if (depRulesPass === false) {
+        calloutText += " Dependency rule violations detected — review Goals & Dependencies for details.";
+      }
+      callout.textContent = calloutText;
       body.appendChild(callout);
     } else if (lastInputData) {
       // Capacity check: show original vs selected comparison

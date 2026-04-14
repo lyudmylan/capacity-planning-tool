@@ -175,6 +175,13 @@ export function buildSummaryModel(result) {
     bannerText = "Selected plan is feasible";
   }
 
+  const dependencyRulesPass = "dependency_rules_pass" in result
+    ? result.dependency_rules_pass
+    : "dependency_rules_pass" in selectedPlan
+      ? selectedPlan.dependency_rules_pass
+      : null;
+  const functionCapacityFit = selectedPlan.function_capacity_fit ?? result.function_capacity_fit ?? {};
+
   return {
     planningMode,
     bannerClass,
@@ -187,6 +194,32 @@ export function buildSummaryModel(result) {
     deferredCount: deferredFeatures.length,
     droppedCount: droppedFeatures.length,
     selectedPlanFeasible: selectedPlan.feasibility,
+    dependencyRulesPass,
+    functionCapacityFit,
+  };
+}
+
+export function buildModeAwareSummaryContext(result) {
+  const baselinePlan = result.baseline_plan ?? null;
+  const selectedPlan = result.selected_plan ?? null;
+  const planningMode = result.planning_mode
+    ?? selectedPlan?.planning_mode
+    ?? baselinePlan?.planning_mode
+    ?? "capacity_check";
+
+  if (planningMode === "planning_schedule") {
+    return {
+      planningMode,
+      primaryQuestion: "Can this selected scope finish inside the horizon once dependency rules are applied?",
+      comparisonModel: "selected_plan_primary",
+      showBaselineComparison: false,
+    };
+  }
+  return {
+    planningMode,
+    primaryQuestion: "Can the current organization likely deliver this roadmap within the selected horizon?",
+    comparisonModel: "baseline_vs_selected",
+    showBaselineComparison: baselinePlan !== null,
   };
 }
 
@@ -197,6 +230,7 @@ export function buildFunctionAnalysisModel(result) {
   const utilizationByFunction = selectedPlan.utilization_by_function ?? {};
   const bufferByFunction = selectedPlan.buffer_by_function ?? {};
   const bottleneckFunctions = selectedPlan.bottleneck_functions ?? result.bottleneck_functions ?? [];
+  const functionCapacityFit = selectedPlan.function_capacity_fit ?? result.function_capacity_fit ?? {};
 
   const allFunctionNames = Array.from(new Set([
     ...Object.keys(capacityByFunction),
@@ -212,6 +246,7 @@ export function buildFunctionAnalysisModel(result) {
     utilization: utilizationByFunction[name] ?? null,
     buffer: bufferByFunction[name] ?? null,
     isBottleneck: bottleneckFunctions.includes(name),
+    fits: name in functionCapacityFit ? functionCapacityFit[name] : null,
   }));
 
   return {

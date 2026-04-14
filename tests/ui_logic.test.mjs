@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   applyEditableFieldsToPayload,
   buildFunctionAnalysisModel,
+  buildModeAwareSummaryContext,
   buildPeriodSource,
   buildPlanComparison,
   buildStructuredFormState,
@@ -548,4 +549,162 @@ test("applyEditableFieldsToPayload uses form-provided quarter_index instead of i
   assert.equal(updated.calendar_year, 2026);
   // month_index not present for quarter horizon
   assert.equal(updated.month_index, undefined);
+});
+
+// --- buildModeAwareSummaryContext ---
+
+test("buildModeAwareSummaryContext returns baseline_vs_selected framing for capacity_check", () => {
+  const ctx = buildModeAwareSummaryContext({
+    planning_mode: "capacity_check",
+    baseline_plan: {feasibility: false},
+    selected_plan: {feasibility: true},
+  });
+
+  assert.equal(ctx.planningMode, "capacity_check");
+  assert.equal(ctx.comparisonModel, "baseline_vs_selected");
+  assert.equal(ctx.showBaselineComparison, true);
+  assert.ok(ctx.primaryQuestion.length > 0);
+});
+
+test("buildModeAwareSummaryContext returns selected_plan_primary framing for planning_schedule", () => {
+  const ctx = buildModeAwareSummaryContext({
+    planning_mode: "planning_schedule",
+    dependency_rules_pass: true,
+    selected_plan: {feasibility: true},
+  });
+
+  assert.equal(ctx.planningMode, "planning_schedule");
+  assert.equal(ctx.comparisonModel, "selected_plan_primary");
+  assert.equal(ctx.showBaselineComparison, false);
+  assert.ok(ctx.primaryQuestion.length > 0);
+});
+
+test("buildModeAwareSummaryContext showBaselineComparison is false when no baseline_plan", () => {
+  const ctx = buildModeAwareSummaryContext({
+    planning_mode: "capacity_check",
+  });
+
+  assert.equal(ctx.comparisonModel, "baseline_vs_selected");
+  assert.equal(ctx.showBaselineComparison, false);
+});
+
+test("buildModeAwareSummaryContext capacity_check and planning_schedule have distinct primary questions", () => {
+  const ccCtx = buildModeAwareSummaryContext({planning_mode: "capacity_check"});
+  const psCtx = buildModeAwareSummaryContext({planning_mode: "planning_schedule"});
+
+  assert.notEqual(ccCtx.primaryQuestion, psCtx.primaryQuestion);
+});
+
+// --- buildSummaryModel mode-aware fields ---
+
+test("buildSummaryModel returns dependencyRulesPass from top-level field for planning_schedule", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "planning_schedule",
+    capacity_dev_days: 80,
+    feasibility: true,
+    dependency_rules_pass: true,
+    delivered_features: [],
+    deferred_features: [],
+    dropped_features: [],
+  });
+
+  assert.equal(summary.dependencyRulesPass, true);
+});
+
+test("buildSummaryModel returns dependencyRulesPass false when dependency rules fail", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "planning_schedule",
+    capacity_dev_days: 80,
+    feasibility: false,
+    dependency_rules_pass: false,
+    bottleneck_functions: [],
+    delivered_features: [],
+    deferred_features: [],
+    dropped_features: [],
+  });
+
+  assert.equal(summary.dependencyRulesPass, false);
+});
+
+test("buildSummaryModel returns dependencyRulesPass null when field is absent (capacity_check)", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "capacity_check",
+    capacity_dev_days: 80,
+    baseline_plan: {feasibility: false},
+    selected_plan: {
+      feasibility: true,
+      delivered_features: [],
+      deferred_features: [],
+      dropped_features: [],
+    },
+  });
+
+  assert.equal(summary.dependencyRulesPass, null);
+});
+
+test("buildSummaryModel returns functionCapacityFit from selected_plan", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "planning_schedule",
+    capacity_dev_days: 80,
+    selected_plan: {
+      feasibility: true,
+      function_capacity_fit: {eng: true, qa: false},
+      delivered_features: [],
+      deferred_features: [],
+      dropped_features: [],
+    },
+  });
+
+  assert.deepEqual(summary.functionCapacityFit, {eng: true, qa: false});
+});
+
+test("buildSummaryModel returns empty functionCapacityFit when absent", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "capacity_check",
+    capacity_dev_days: 80,
+    selected_plan: {
+      feasibility: true,
+      delivered_features: [],
+      deferred_features: [],
+      dropped_features: [],
+    },
+  });
+
+  assert.deepEqual(summary.functionCapacityFit, {});
+});
+
+// --- buildFunctionAnalysisModel fits field ---
+
+test("buildFunctionAnalysisModel includes fits per row from function_capacity_fit", () => {
+  const model = buildFunctionAnalysisModel({
+    planning_mode: "planning_schedule",
+    capacity_by_function: {eng: 80, qa: 40},
+    demand_by_function: {eng: 72, qa: 44},
+    utilization_by_function: {eng: 0.9, qa: 1.1},
+    buffer_by_function: {eng: 8, qa: -4},
+    bottleneck_functions: ["qa"],
+    function_capacity_fit: {eng: true, qa: false},
+  });
+
+  const engRow = model.rows.find((r) => r.name === "eng");
+  const qaRow = model.rows.find((r) => r.name === "qa");
+
+  assert.equal(engRow.fits, true);
+  assert.equal(qaRow.fits, false);
+});
+
+test("buildFunctionAnalysisModel fits is null when function_capacity_fit is absent", () => {
+  const model = buildFunctionAnalysisModel({
+    planning_mode: "capacity_check",
+    selected_plan: {
+      capacity_by_function: {eng: 70},
+      demand_by_function: {eng: 60},
+      utilization_by_function: {eng: 0.86},
+      buffer_by_function: {eng: 10},
+      bottleneck_functions: [],
+    },
+  });
+
+  const engRow = model.rows.find((r) => r.name === "eng");
+  assert.equal(engRow.fits, null);
 });
