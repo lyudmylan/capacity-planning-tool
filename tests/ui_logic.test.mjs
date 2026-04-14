@@ -1314,3 +1314,217 @@ test("applyBusinessGoalsToPayload seeds business_goals when absent", () => {
   assert.deepEqual(updated.business_goals.must_deliver_feature_ids, ["f-99"]);
   assert.equal(updated.business_goals.max_utilization, 0.9);
 });
+
+// ============================================================
+// Issue #76 regression coverage
+// ============================================================
+
+// --- buildSummaryModel banner text variants ---
+
+test("buildSummaryModel banner is infeasible with bottleneck message when bottleneck_functions present", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "capacity_check",
+    capacity_dev_days: 80,
+    selected_plan: {
+      feasibility: false,
+      bottleneck_functions: ["qa"],
+      delivered_features: [],
+      deferred_features: [],
+      dropped_features: [],
+    },
+  });
+
+  assert.equal(summary.bannerClass, "feasibility-banner infeasible");
+  assert.equal(summary.bannerText, "Plan is infeasible — function demand exceeds capacity");
+});
+
+test("buildSummaryModel banner is generic infeasible when no bottlenecks and not dep-rule failure", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "capacity_check",
+    capacity_dev_days: 80,
+    selected_plan: {
+      feasibility: false,
+      bottleneck_functions: [],
+      delivered_features: [],
+      deferred_features: [],
+      dropped_features: [],
+    },
+  });
+
+  assert.equal(summary.bannerText, "Plan is infeasible — demand exceeds capacity");
+});
+
+test("buildSummaryModel banner is feasible when selected_plan is feasible and no baseline", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "planning_schedule",
+    capacity_dev_days: 80,
+    selected_plan: {
+      feasibility: true,
+      delivered_features: [],
+      deferred_features: [],
+      dropped_features: [],
+    },
+  });
+
+  assert.equal(summary.bannerClass, "feasibility-banner feasible");
+  assert.equal(summary.bannerText, "Plan is feasible");
+});
+
+test("buildSummaryModel reads dependency_rules_pass from selected_plan when absent at top level", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "planning_schedule",
+    capacity_dev_days: 80,
+    selected_plan: {
+      feasibility: true,
+      dependency_rules_pass: true,
+      delivered_features: [],
+      deferred_features: [],
+      dropped_features: [],
+    },
+  });
+
+  assert.equal(summary.dependencyRulesPass, true);
+});
+
+test("buildSummaryModel dependency_rules_pass false from selected_plan takes priority when absent at top level", () => {
+  const summary = buildSummaryModel({
+    planning_mode: "planning_schedule",
+    capacity_dev_days: 80,
+    selected_plan: {
+      feasibility: false,
+      dependency_rules_pass: false,
+      bottleneck_functions: [],
+      delivered_features: [],
+      deferred_features: [],
+      dropped_features: [],
+    },
+  });
+
+  assert.equal(summary.dependencyRulesPass, false);
+  assert.equal(summary.bannerText, "Plan is infeasible — dependency rules fail");
+});
+
+// --- buildModeAwareSummaryContext mode inference ---
+
+test("buildModeAwareSummaryContext infers planning_schedule from selected_plan when top-level absent", () => {
+  const ctx = buildModeAwareSummaryContext({
+    selected_plan: {planning_mode: "planning_schedule", feasibility: true},
+  });
+
+  assert.equal(ctx.planningMode, "planning_schedule");
+  assert.equal(ctx.comparisonModel, "selected_plan_primary");
+  assert.equal(ctx.showBaselineComparison, false);
+});
+
+test("buildModeAwareSummaryContext defaults to capacity_check when no mode anywhere", () => {
+  const ctx = buildModeAwareSummaryContext({});
+
+  assert.equal(ctx.planningMode, "capacity_check");
+  assert.equal(ctx.comparisonModel, "baseline_vs_selected");
+});
+
+// --- buildFunctionAnalysisModel edge cases ---
+
+test("buildFunctionAnalysisModel returns empty rows when no function data present", () => {
+  const model = buildFunctionAnalysisModel({
+    planning_mode: "capacity_check",
+    selected_plan: {feasibility: true},
+  });
+
+  assert.equal(model.rows.length, 0);
+  assert.equal(model.hasBottlenecks, false);
+  assert.deepEqual(model.bottleneckFunctions, []);
+});
+
+test("buildFunctionAnalysisModel row fits is false for function that fails capacity fit", () => {
+  const model = buildFunctionAnalysisModel({
+    planning_mode: "planning_schedule",
+    selected_plan: {
+      capacity_by_function: {eng: 80, qa: 40},
+      demand_by_function: {eng: 72, qa: 50},
+      utilization_by_function: {eng: 0.9, qa: 1.25},
+      buffer_by_function: {eng: 8, qa: -10},
+      bottleneck_functions: ["qa"],
+      function_capacity_fit: {eng: true, qa: false},
+    },
+  });
+
+  const qaRow = model.rows.find(r => r.name === "qa");
+  const engRow = model.rows.find(r => r.name === "eng");
+
+  assert.equal(qaRow.fits, false);
+  assert.equal(qaRow.isBottleneck, true);
+  assert.equal(engRow.fits, true);
+  assert.equal(engRow.isBottleneck, false);
+});
+
+test("buildFunctionAnalysisModel handles function present in fit but missing from capacity/demand", () => {
+  const model = buildFunctionAnalysisModel({
+    planning_mode: "planning_schedule",
+    capacity_by_function: {eng: 80},
+    demand_by_function: {eng: 72},
+    utilization_by_function: {eng: 0.9},
+    buffer_by_function: {eng: 8},
+    bottleneck_functions: [],
+    function_capacity_fit: {eng: true, devops: true},
+  });
+
+  // devops appears only in function_capacity_fit, not in the per-function metrics
+  // it should NOT appear as a row (rows come from the union of capacity/demand/util/buffer keys)
+  const devopsRow = model.rows.find(r => r.name === "devops");
+  assert.equal(devopsRow, undefined);
+
+  const engRow = model.rows.find(r => r.name === "eng");
+  assert.equal(engRow.fits, true);
+});
+
+// --- applySchedulePolicyToPayload: capacity_check strips existing policies ---
+
+test("applySchedulePolicyToPayload strips org_schedule_policies when capacity_check has existing policies", () => {
+  const original = {
+    planning_mode: "capacity_check",
+    rd_org: {
+      org_schedule_policies: {post_dev_min_ratio: {qa: 0.4, devops: 0.3}},
+      teams: [],
+      country_profiles: [],
+    },
+  };
+
+  const updated = applySchedulePolicyToPayload(original, {qa: 0.4, devops: 0.3});
+
+  assert.equal(updated.rd_org.org_schedule_policies, undefined);
+  assert.deepEqual(updated.rd_org.teams, []);
+});
+
+// --- applyRoadmapFeaturesToPayload: adding a feature with no prior estimates ---
+
+test("applyRoadmapFeaturesToPayload handles new feature with no existing roadmap entry", () => {
+  const original = {roadmap: {features: []}};
+  const newFeatures = [{id: "f-new", name: "New Feature", priority: "High", estimates: {eng: "M"}}];
+
+  const updated = applyRoadmapFeaturesToPayload(original, newFeatures);
+
+  assert.equal(updated.roadmap.features.length, 1);
+  assert.equal(updated.roadmap.features[0].id, "f-new");
+  assert.deepEqual(updated.roadmap.features[0].estimates, {eng: "M"});
+});
+
+// --- readOrgFromPayload / applyOrgToPayload: round-trip preserves unknown member fields ---
+
+test("applyOrgToPayload preserves unknown member fields through read-apply round-trip", () => {
+  const data = {
+    rd_org: {
+      teams: [{
+        name: "Team A",
+        members: [{id: "m1", function: "eng", seniority: "Senior", country_profile: "us", custom_tag: "alpha"}],
+      }],
+      country_profiles: [],
+    },
+  };
+
+  // applyOrgToPayload uses id-matching to retrieve original member data, so custom_tag survives
+  const org = readOrgFromPayload(data);
+  const updated = applyOrgToPayload(data, org);
+
+  assert.equal(updated.rd_org.teams[0].members[0].custom_tag, "alpha");
+});
